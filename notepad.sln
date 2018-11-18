@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27130.2010
+VisualStudioVersion = 15.0.28010.2016
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "notepad", "notepad\notepad.vcxproj", "{58601EA1-D894-4C3F-94EB-2EF84C051CB2}"
 EndProject
@@ -20,6 +20,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {140A0520-E580-4B93-9777-BB0BADD1885E}
+		SolutionGuid = {1CC16163-9A1F-4F8B-B26A-F08058225798}
 	EndGlobalSection
 EndGlobal
