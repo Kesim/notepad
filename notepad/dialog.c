@@ -1,25 +1,34 @@
 /*
- *  Notepad (dialog.c)
- *
- *  Copyright 1998,99 Marcel Baur <mbaur@g26.ethz.ch>
- *  Copyright 2002 Sylvain Petreolle <spetreolle@yahoo.fr>
- *  Copyright 2002 Andriy Palamarchuk
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- */
+*  Notepad (dialog.c)
+*
+*  Copyright 1998,99 Marcel Baur <mbaur@g26.ethz.ch>
+*  Copyright 2002 Sylvain Petreolle <spetreolle@yahoo.fr>
+*  Copyright 2002 Andriy Palamarchuk
+*
+* This library is free software; you can redistribute it and/or
+* modify it under the terms of the GNU Lesser General Public
+* License as published by the Free Software Foundation; either
+* version 2.1 of the License, or (at your option) any later version.
+*
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+* Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public
+* License along with this library; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
 
+/* Dialog.c 분석사항
+-분석자: 심규림
+-분석날짜: 2018.10.25~ 2018.10.30
+-분석 내용: Dialog.h는 메모장에서 각 메뉴 안에 항목들을 구현해 놓은 소스파일입니다.
+-구현 기능: -파일 열기 -파일 저장 -프린트하기 -메모장닫기
+-실행취소 -잘라내기 -붙이기 -삭제 -모두선택 -시간날짜삽입
+-하단 상태창띄우기 -폰트설정 -찾기/바꾸기
+-도움말 -페이지 설정
+*/
 #include "notepad.h"
 
 #include <assert.h>
@@ -27,1280 +36,1280 @@
 #include <strsafe.h>
 
 //zy
-#pragma comment(lib,"comctl32.lib")
+#pragma comment(lib,"comctl32.lib") 
 
-LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam); // main.c 에 구현되어 있음. DoCreateEditWindow 내부에서 사용.
 
-static const TCHAR helpfile[] = _T("notepad.hlp");
-static const TCHAR empty_str[] = _T("");
-static const TCHAR szDefaultExt[] = _T("txt");
-static const TCHAR txt_files[] = _T("*.txt");
+static const TCHAR helpfile[] = _T("notepad.hlp"); // 도움말 파일
+static const TCHAR empty_str[] = _T(""); // 빈 스트링. 에딧 컨트롤의 내용을 비울 때 사용.
+static const TCHAR szDefaultExt[] = _T("txt"); // 기본 확장자
+static const TCHAR txt_files[] = _T("*.txt"); // 모든 텍스트 파일
 
 static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 
-VOID ShowLastError(VOID)
+VOID ShowLastError(VOID) // 가장 최근의 에러를 보여줌
 {
-    DWORD error = GetLastError();
-    if (error != NO_ERROR)
-    {
-        LPTSTR lpMsgBuf = NULL;
-        TCHAR szTitle[MAX_STRING_LEN];
+	DWORD error = GetLastError(); // 마지막 에러를 할당
+	if (error != NO_ERROR)
+	{
+		LPTSTR lpMsgBuf = NULL;
+		TCHAR szTitle[MAX_STRING_LEN];
 
-        LoadString(Globals.hInstance, STRING_ERROR, szTitle, ARRAY_SIZE(szTitle));
+		LoadString(Globals.hInstance, STRING_ERROR, szTitle, ARRAY_SIZE(szTitle)); // 에러 값에 해당하는 리소스를 로드
 
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-                      NULL,
-                      error,
-                      0,
-                      (LPTSTR) &lpMsgBuf,
-                      0,
-                      NULL);
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, //error에 해당하는 문구가 lpMsgBuf에 들어감
+			NULL,
+			error,
+			0,
+			(LPTSTR)&lpMsgBuf,
+			0,
+			NULL);
 
-        MessageBox(NULL, lpMsgBuf, szTitle, MB_OK | MB_ICONERROR);
-        LocalFree(lpMsgBuf);
-    }
+		MessageBox(NULL, lpMsgBuf, szTitle, MB_OK | MB_ICONERROR); // 오류 내용과 타이틀 제목이 다이얼로그로 출력
+		LocalFree(lpMsgBuf);
+	}
 }
 
 /**
- * Sets the caption of the main window according to Globals.szFileTitle:
- *    (untitled) - Notepad      if no file is open
- *    [filename] - Notepad      if a file is given
- */
-void UpdateWindowCaption(BOOL clearModifyAlert)
+* Sets the caption of the main window according to Globals.szFileTitle:
+*    (untitled) - Notepad      if no file is open
+*    [filename] - Notepad      if a file is given
+*/
+void UpdateWindowCaption(BOOL clearModifyAlert) // 메모장 윈도우의 타이틀을 최신화
 {
-    TCHAR szCaption[MAX_STRING_LEN];
-    TCHAR szNotepad[MAX_STRING_LEN];
-    TCHAR szFilename[MAX_STRING_LEN];
+	TCHAR szCaption[MAX_STRING_LEN];
+	TCHAR szNotepad[MAX_STRING_LEN];
+	TCHAR szFilename[MAX_STRING_LEN];
 
-    /* Load the name of the application */
-    LoadString(Globals.hInstance, STRING_NOTEPAD, szNotepad, ARRAY_SIZE(szNotepad));
+	/* Load the name of the application */
+	LoadString(Globals.hInstance, STRING_NOTEPAD, szNotepad, ARRAY_SIZE(szNotepad));
 
-    /* Determine if the file has been saved or if this is a new file */
-    if (Globals.szFileTitle[0] != 0)
-        StringCchCopy(szFilename, ARRAY_SIZE(szFilename), Globals.szFileTitle);
-    else
-        LoadString(Globals.hInstance, STRING_UNTITLED, szFilename, ARRAY_SIZE(szFilename));
 
-    /* When a file is being opened or created, there is no need to have the edited flag shown
-       when the new or opened file has not been edited yet */
-    if (clearModifyAlert)
-        StringCbPrintf(szCaption, ARRAY_SIZE(szCaption), _T("%s - %s"), szFilename, szNotepad);
-    else
-    {
-        BOOL isModified = (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0) ? TRUE : FALSE);
+	if (Globals.szFileTitle[0] != 0) // 기존에 파일이 있으면 -> szFilename에 기존 파일 이름 할당
+		StringCchCopy(szFilename, ARRAY_SIZE(szFilename), Globals.szFileTitle);
+	else // 새 파일이면 untitled에 해당하는 리소스 문자열 불러옴
+		LoadString(Globals.hInstance, STRING_UNTITLED, szFilename, ARRAY_SIZE(szFilename));
 
-        /* Update the caption based upon if the user has modified the contents of the file or not */
-        StringCbPrintf(szCaption, ARRAY_SIZE(szCaption), _T("%s%s - %s"),
-            (isModified ? _T("*") : _T("")), szFilename, szNotepad);
-    }
+	/* When a file is being opened or created, there is no need to have the edited flag shown
+	when the new or opened file has not been edited yet */
+	if (clearModifyAlert) // TRUE 이면  "파일이름-메모장"의 형식으로 출력
+		StringCbPrintf(szCaption, ARRAY_SIZE(szCaption), _T("%s - %s"), szFilename, szNotepad);
+	else
+	{
+		BOOL isModified = (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0) ? TRUE : FALSE); // 편집창 내용의 변경 여부
 
-    /* Update the window caption */
-    SetWindowText(Globals.hMainWnd, szCaption);
+																						   /* Update the caption based upon if the user has modified the contents of the file or not */
+		StringCbPrintf(szCaption, ARRAY_SIZE(szCaption), _T("%s%s - %s"), // 변경된 파일이면 *가 붙여서 출력
+			(isModified ? _T("*") : _T("")), szFilename, szNotepad);
+	}
+
+	SetWindowText(Globals.hMainWnd, szCaption); // 타이틀 제목을 할당
 }
 
-int DIALOG_StringMsgBox(HWND hParent, int formatId, LPCTSTR szString, DWORD dwFlags)
+int DIALOG_StringMsgBox(HWND hParent, int formatId, LPCTSTR szString, DWORD dwFlags) // 특정 id의 메시지를 다이얼로그로 띄워주는 역할
 {
-    TCHAR szMessage[MAX_STRING_LEN];
-    TCHAR szResource[MAX_STRING_LEN];
+	TCHAR szMessage[MAX_STRING_LEN];
+	TCHAR szResource[MAX_STRING_LEN];
 
-    /* Load and format szMessage */
-    LoadString(Globals.hInstance, formatId, szResource, ARRAY_SIZE(szResource));
-    _sntprintf(szMessage, ARRAY_SIZE(szMessage), szResource, szString);
+	/* Load and format szMessage */
+	LoadString(Globals.hInstance, formatId, szResource, ARRAY_SIZE(szResource)); // formatId에 해당하는 메시지를 리소스로 부터 로드
+	_sntprintf(szMessage, ARRAY_SIZE(szMessage), szResource, szString);
 
-    /* Load szCaption */
-    if ((dwFlags & MB_ICONMASK) == MB_ICONEXCLAMATION)
-        LoadString(Globals.hInstance, STRING_ERROR, szResource, ARRAY_SIZE(szResource));
-    else
-        LoadString(Globals.hInstance, STRING_NOTEPAD, szResource, ARRAY_SIZE(szResource));
+	/* Load szCaption */
+	if ((dwFlags & MB_ICONMASK) == MB_ICONEXCLAMATION) // 느낌표가 있는 다이얼로그는 에러 표시시
+		LoadString(Globals.hInstance, STRING_ERROR, szResource, ARRAY_SIZE(szResource));
+	else
+		LoadString(Globals.hInstance, STRING_NOTEPAD, szResource, ARRAY_SIZE(szResource));
 
-    /* Display Modal Dialog */
-    // if (hParent == NULL)
-        // hParent = Globals.hMainWnd;
-    return MessageBox(hParent, szMessage, szResource, dwFlags);
+	/* Display Modal Dialog */
+	// if (hParent == NULL)
+	// hParent = Globals.hMainWnd;
+	return MessageBox(hParent, szMessage, szResource, dwFlags); // 다이얼로그 표시
 }
 
-static void AlertFileNotFound(LPCTSTR szFileName)
+static void AlertFileNotFound(LPCTSTR szFileName) // 파일 못 찾았을 때
 {
-    DIALOG_StringMsgBox(Globals.hMainWnd, STRING_NOTFOUND, szFileName, MB_ICONEXCLAMATION | MB_OK);
+	DIALOG_StringMsgBox(Globals.hMainWnd, STRING_NOTFOUND, szFileName, MB_ICONEXCLAMATION | MB_OK);
 }
 
-static int AlertFileNotSaved(LPCTSTR szFileName)
+static int AlertFileNotSaved(LPCTSTR szFileName) // 파일 미 저장시 알림
 {
-    TCHAR szUntitled[MAX_STRING_LEN];
+	TCHAR szUntitled[MAX_STRING_LEN];
 
-    LoadString(Globals.hInstance, STRING_UNTITLED, szUntitled, ARRAY_SIZE(szUntitled));
+	LoadString(Globals.hInstance, STRING_UNTITLED, szUntitled, ARRAY_SIZE(szUntitled));
 
-    return DIALOG_StringMsgBox(Globals.hMainWnd, STRING_NOTSAVED,
-                               szFileName[0] ? szFileName : szUntitled,
-                               MB_ICONQUESTION | MB_YESNOCANCEL);
+	return DIALOG_StringMsgBox(Globals.hMainWnd, STRING_NOTSAVED,
+		szFileName[0] ? szFileName : szUntitled,
+		MB_ICONQUESTION | MB_YESNOCANCEL);
 }
 
-static void AlertPrintError(void)
+static void AlertPrintError(void) // 프린트 에러 시
 {
-    TCHAR szUntitled[MAX_STRING_LEN];
+	TCHAR szUntitled[MAX_STRING_LEN];
 
-    LoadString(Globals.hInstance, STRING_UNTITLED, szUntitled, ARRAY_SIZE(szUntitled));
+	LoadString(Globals.hInstance, STRING_UNTITLED, szUntitled, ARRAY_SIZE(szUntitled));
 
-    DIALOG_StringMsgBox(Globals.hMainWnd, STRING_PRINTERROR,
-                        Globals.szFileName[0] ? Globals.szFileName : szUntitled,
-                        MB_ICONEXCLAMATION | MB_OK);
+	DIALOG_StringMsgBox(Globals.hMainWnd, STRING_PRINTERROR,
+		Globals.szFileName[0] ? Globals.szFileName : szUntitled,
+		MB_ICONEXCLAMATION | MB_OK);
 }
 
 /**
- * Returns:
- *   TRUE  - if file exists
- *   FALSE - if file does not exist
- */
-BOOL FileExists(LPCTSTR szFilename)
+* Returns:
+*   TRUE  - if file exists
+*   FALSE - if file does not exist
+*/
+BOOL FileExists(LPCTSTR szFilename) // 파일 존재 시
 {
-    WIN32_FIND_DATA entry;
-    HANDLE hFile;
+	WIN32_FIND_DATA entry;
+	HANDLE hFile;
 
-    hFile = FindFirstFile(szFilename, &entry);
-    FindClose(hFile);
+	hFile = FindFirstFile(szFilename, &entry); // 파일에 대한 핸들을 할당을 시도
+	FindClose(hFile);
 
-    return (hFile != INVALID_HANDLE_VALUE);
+	return (hFile != INVALID_HANDLE_VALUE); // 할당이 성공하면 TRUE 리턴
 }
 
-BOOL HasFileExtension(LPCTSTR szFilename)
+BOOL HasFileExtension(LPCTSTR szFilename) // 확장자를 가지고 있는지 (인수: 파일이름)
 {
-    LPCTSTR s;
+	LPCTSTR s;
 
-    s = _tcsrchr(szFilename, _T('\\'));
-    if (s)
-        szFilename = s;
-    return _tcsrchr(szFilename, _T('.')) != NULL;
+	s = _tcsrchr(szFilename, _T('\\')); // 경로에서 파일이름만 추출
+	if (s)
+		szFilename = s;
+	return _tcsrchr(szFilename, _T('.')) != NULL; // 파일이름에서 확장자만 추출
 }
 
-int GetSelectionTextLength(HWND hWnd)
+int GetSelectionTextLength(HWND hWnd) // 선택된 윈도우의 글자 길이 리턴 (인수: 윈도우 핸들) (리턴: 글자의 길이)
 {
-    DWORD dwStart = 0;
-    DWORD dwEnd = 0;
+	DWORD dwStart = 0;
+	DWORD dwEnd = 0;
 
-    SendMessage(hWnd, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwEnd);
+	SendMessage(hWnd, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwEnd);
 
-    return dwEnd - dwStart;
+	return dwEnd - dwStart;
 }
 
-int GetSelectionText(HWND hWnd, LPTSTR lpString, int nMaxCount)
+int GetSelectionText(HWND hWnd, LPTSTR lpString, int nMaxCount) // 선택된 윈도우의 글자 및 길이 반환 (인수:윈도우, 스트링변수) (리턴:글자 수)
 {
-    DWORD dwStart = 0;
-    DWORD dwEnd = 0;
-    DWORD dwSize;
-    HRESULT hResult;
-    LPTSTR lpTemp;
+	DWORD dwStart = 0;
+	DWORD dwEnd = 0;
+	DWORD dwSize;
+	HRESULT hResult;
+	LPTSTR lpTemp;
 
-    if (!lpString)
-    {
-        return 0;
-    }
+	if (!lpString)
+	{
+		return 0;
+	}
 
-    SendMessage(hWnd, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwEnd);
+	SendMessage(hWnd, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwEnd);
 
-    if (dwStart == dwEnd)
-    {
-        return 0;
-    }
+	if (dwStart == dwEnd)
+	{
+		return 0;
+	}
 
-    dwSize = GetWindowTextLength(hWnd) + 1;
-    lpTemp = HeapAlloc(GetProcessHeap(), 0, dwSize * sizeof(TCHAR));
-    if (!lpTemp)
-    {
-        return 0;
-    }
+	dwSize = GetWindowTextLength(hWnd) + 1;
+	lpTemp = HeapAlloc(GetProcessHeap(), 0, dwSize * sizeof(TCHAR));
+	if (!lpTemp)
+	{
+		return 0;
+	}
 
-    dwSize = GetWindowText(hWnd, lpTemp, dwSize);
+	dwSize = GetWindowText(hWnd, lpTemp, dwSize);
 
-    if (!dwSize)
-    {
-        HeapFree(GetProcessHeap(), 0, lpTemp);
-        return 0;
-    }
+	if (!dwSize)
+	{
+		HeapFree(GetProcessHeap(), 0, lpTemp);
+		return 0;
+	}
 
-    hResult = StringCchCopyN(lpString, nMaxCount, lpTemp + dwStart, dwEnd - dwStart);
-    HeapFree(GetProcessHeap(), 0, lpTemp);
+	hResult = StringCchCopyN(lpString, nMaxCount, lpTemp + dwStart, dwEnd - dwStart);
+	HeapFree(GetProcessHeap(), 0, lpTemp);
 
-    switch (hResult)
-    {
-        case S_OK:
-        {
-            return dwEnd - dwStart;
-        }
+	switch (hResult)
+	{
+	case S_OK:
+	{
+		return dwEnd - dwStart;
+	}
 
-        case STRSAFE_E_INSUFFICIENT_BUFFER:
-        {
-            return nMaxCount - 1;
-        }
+	case STRSAFE_E_INSUFFICIENT_BUFFER:
+	{
+		return nMaxCount - 1;
+	}
 
-        default:
-        {
-            return 0;
-        }
-    }
+	default:
+	{
+		return 0;
+	}
+	}
 }
 
 static RECT
-GetPrintingRect(HDC hdc, RECT margins)
+GetPrintingRect(HDC hdc, RECT margins) // 프린트 영역을 가리키는 구조체 구하기 (인수:핸들, 마진) (리턴: RECT 구조체)
 {
-    int iLogPixelsX, iLogPixelsY;
-    int iHorzRes, iVertRes;
-    int iPhysPageX, iPhysPageY, iPhysPageW, iPhysPageH;
-    RECT rcPrintRect;
+	int iLogPixelsX, iLogPixelsY;
+	int iHorzRes, iVertRes;
+	int iPhysPageX, iPhysPageY, iPhysPageW, iPhysPageH;
+	RECT rcPrintRect;
 
-    iPhysPageX = GetDeviceCaps(hdc, PHYSICALOFFSETX);
-    iPhysPageY = GetDeviceCaps(hdc, PHYSICALOFFSETY);
-    iPhysPageW = GetDeviceCaps(hdc, PHYSICALWIDTH);
-    iPhysPageH = GetDeviceCaps(hdc, PHYSICALHEIGHT);
-    iLogPixelsX = GetDeviceCaps(hdc, LOGPIXELSX);
-    iLogPixelsY = GetDeviceCaps(hdc, LOGPIXELSY);
-    iHorzRes = GetDeviceCaps(hdc, HORZRES);
-    iVertRes = GetDeviceCaps(hdc, VERTRES);
+	iPhysPageX = GetDeviceCaps(hdc, PHYSICALOFFSETX);
+	iPhysPageY = GetDeviceCaps(hdc, PHYSICALOFFSETY);
+	iPhysPageW = GetDeviceCaps(hdc, PHYSICALWIDTH);
+	iPhysPageH = GetDeviceCaps(hdc, PHYSICALHEIGHT);
+	iLogPixelsX = GetDeviceCaps(hdc, LOGPIXELSX);
+	iLogPixelsY = GetDeviceCaps(hdc, LOGPIXELSY);
+	iHorzRes = GetDeviceCaps(hdc, HORZRES);
+	iVertRes = GetDeviceCaps(hdc, VERTRES);
 
-    rcPrintRect.left = (margins.left * iLogPixelsX / 2540) - iPhysPageX;
-    rcPrintRect.top = (margins.top * iLogPixelsY / 2540) - iPhysPageY;
-    rcPrintRect.right = iHorzRes - (((margins.left * iLogPixelsX / 2540) - iPhysPageX) + ((margins.right * iLogPixelsX / 2540) - (iPhysPageW - iPhysPageX - iHorzRes)));
-    rcPrintRect.bottom = iVertRes - (((margins.top * iLogPixelsY / 2540) - iPhysPageY) + ((margins.bottom * iLogPixelsY / 2540) - (iPhysPageH - iPhysPageY - iVertRes)));
+	rcPrintRect.left = (margins.left * iLogPixelsX / 2540) - iPhysPageX;
+	rcPrintRect.top = (margins.top * iLogPixelsY / 2540) - iPhysPageY;
+	rcPrintRect.right = iHorzRes - (((margins.left * iLogPixelsX / 2540) - iPhysPageX) + ((margins.right * iLogPixelsX / 2540) - (iPhysPageW - iPhysPageX - iHorzRes)));
+	rcPrintRect.bottom = iVertRes - (((margins.top * iLogPixelsY / 2540) - iPhysPageY) + ((margins.bottom * iLogPixelsY / 2540) - (iPhysPageH - iPhysPageY - iVertRes)));
 
-    return rcPrintRect;
+	return rcPrintRect;
 }
 
-static BOOL DoSaveFile(VOID)
+static BOOL DoSaveFile(VOID) // 파일 저장을 수행 (리턴:성공여부)
 {
-    BOOL bRet = TRUE;
-    HANDLE hFile;
-    LPTSTR pTemp;
-    DWORD size;
+	BOOL bRet = TRUE;
+	HANDLE hFile;
+	LPTSTR pTemp;
+	DWORD size;
 
-    hFile = CreateFile(Globals.szFileName, GENERIC_WRITE, FILE_SHARE_WRITE,
-                       NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if(hFile == INVALID_HANDLE_VALUE)
-    {
-        ShowLastError();
-        return FALSE;
-    }
+	hFile = CreateFile(Globals.szFileName, GENERIC_WRITE, FILE_SHARE_WRITE, // 파일을 새로 생성
+		NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile == INVALID_HANDLE_VALUE)
+	{
+		ShowLastError();
+		return FALSE;
+	}
 
-    size = GetWindowTextLength(Globals.hEdit) + 1;
-    pTemp = HeapAlloc(GetProcessHeap(), 0, size * sizeof(*pTemp));
-    if (!pTemp)
-    {
-        CloseHandle(hFile);
-        ShowLastError();
-        return FALSE;
-    }
-    size = GetWindowText(Globals.hEdit, pTemp, size);
+	size = GetWindowTextLength(Globals.hEdit) + 1;
+	pTemp = HeapAlloc(GetProcessHeap(), 0, size * sizeof(*pTemp));
+	if (!pTemp)
+	{
+		CloseHandle(hFile);
+		ShowLastError();
+		return FALSE;
+	}
+	size = GetWindowText(Globals.hEdit, pTemp, size); // 현재 윈도우 창의 글자를 pTemp 버퍼에 담음
 
-    if (size)
-    {
-        if (!WriteText(hFile, (LPWSTR)pTemp, size, Globals.encFile, Globals.iEoln))
-        {
-            ShowLastError();
-            bRet = FALSE;
-        }
-        else
-        {
-            SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0);
-            bRet = TRUE;
-        }
-    }
+	if (size)
+	{
+		if (!WriteText(hFile, (LPWSTR)pTemp, size, Globals.encFile, Globals.iEoln)) // 메모장 파일에 씀(text.c의 함수인 WriteText 이용)
+		{
+			ShowLastError();
+			bRet = FALSE;
+		}
+		else
+		{
+			SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0);
+			bRet = TRUE;
+		}
+	}
 
-    CloseHandle(hFile);
-    HeapFree(GetProcessHeap(), 0, pTemp);
-    return bRet;
+	CloseHandle(hFile);
+	HeapFree(GetProcessHeap(), 0, pTemp);
+	return bRet;
 }
 
 /**
- * Returns:
- *   TRUE  - User agreed to close (both save/don't save)
- *   FALSE - User cancelled close by selecting "Cancel"
- */
-BOOL DoCloseFile(VOID)
+* Returns:
+*   TRUE  - User agreed to close (both save/don't save)
+*   FALSE - User cancelled close by selecting "Cancel"
+*/
+BOOL DoCloseFile(VOID) // 파일 닫기 수행 (리턴: 성공여부)
 {
-    int nResult;
+	int nResult;
 
-    if (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0))
-    {
-        /* prompt user to save changes */
-        nResult = AlertFileNotSaved(Globals.szFileName);
-        switch (nResult)
-        {
-            case IDYES:
-                if(!DIALOG_FileSave())
-                    return FALSE;
-                break;
+	if (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0)) // 파일이 변경되었는지
+	{
+		/* prompt user to save changes */
+		nResult = AlertFileNotSaved(Globals.szFileName);
+		switch (nResult)
+		{
+		case IDYES:
+			if (!DIALOG_FileSave())
+				return FALSE;
+			break;
 
-            case IDNO:
-                break;
+		case IDNO:
+			break;
 
-            case IDCANCEL:
-                return FALSE;
+		case IDCANCEL:
+			return FALSE;
 
-            default:
-                return FALSE;
-        }
-    }
+		default:
+			return FALSE;
+		}
+	}
 
-    SetFileName(empty_str);
-    UpdateWindowCaption(TRUE);
+	SetFileName(empty_str); // 파일명을 다시 빈 파일로 설정
+	UpdateWindowCaption(TRUE); // 타이틀을 최신화
 
-    return TRUE;
+	return TRUE;
 }
 
-VOID DoOpenFile(LPCTSTR szFileName)
+VOID DoOpenFile(LPCTSTR szFileName) // 파일 열기 수행 (인수: 파일이름)
 {
-    static const TCHAR dotlog[] = _T(".LOG");
-    HANDLE hFile;
-    LPTSTR pszText = NULL;
-    DWORD dwTextLen;
-    TCHAR log[5];
+	static const TCHAR dotlog[] = _T(".LOG");
+	HANDLE hFile;
+	LPTSTR pszText = NULL;
+	DWORD dwTextLen;
+	TCHAR log[5];
 
-    /* Close any files and prompt to save changes */
-    if (!DoCloseFile())
-        return;
+	/* Close any files and prompt to save changes */
+	if (!DoCloseFile()) // 기존파일을 닫는다
+		return;
 
-    hFile = CreateFile(szFileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                       OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE)
-    {
-        ShowLastError();
-        goto done;
-    }
+	hFile = CreateFile(szFileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, // 파일을 열기
+		OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile == INVALID_HANDLE_VALUE)
+	{
+		ShowLastError();
+		goto done;
+	}
 
-    if (!ReadText(hFile, (LPWSTR *)&pszText, &dwTextLen, &Globals.encFile, &Globals.iEoln))
-    {
-        ShowLastError();
-        goto done;
-    }
-    SetWindowText(Globals.hEdit, pszText);
+	if (!ReadText(hFile, (LPWSTR *)&pszText, &dwTextLen, &Globals.encFile, &Globals.iEoln)) // 파일에서 pszText로 내용을 읽어오기
+	{
+		ShowLastError();
+		goto done;
+	}
+	SetWindowText(Globals.hEdit, pszText); // 메모장의 에딧 컨트롤에 파일 내용을 적용
 
-    SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0);
-    SendMessage(Globals.hEdit, EM_EMPTYUNDOBUFFER, 0, 0);
-    SetFocus(Globals.hEdit);
+	SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0); // 파일 수정여부는 다시 미 수정 상태로
+	SendMessage(Globals.hEdit, EM_EMPTYUNDOBUFFER, 0, 0); // 실행취소(ctrl+z) 버퍼 초기화
+	SetFocus(Globals.hEdit); // 키보드 입력 포커스
 
-    /*  If the file starts with .LOG, add a time/date at the end and set cursor after
-     *  See http://support.microsoft.com/?kbid=260563
-     */
-    if (GetWindowText(Globals.hEdit, log, ARRAY_SIZE(log)) && !_tcscmp(log, dotlog))
-    {
-        static const TCHAR lf[] = _T("\r\n");
-        SendMessage(Globals.hEdit, EM_SETSEL, GetWindowTextLength(Globals.hEdit), -1);
-        SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
-        DIALOG_EditTimeDate();
-        SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
-    }
+							 /*  If the file starts with .LOG, add a time/date at the end and set cursor after
+							 *  See http://support.microsoft.com/?kbid=260563
+							 */
+	if (GetWindowText(Globals.hEdit, log, ARRAY_SIZE(log)) && !_tcscmp(log, dotlog)) // 로그 파일 일 때
+	{
+		static const TCHAR lf[] = _T("\r\n");
+		SendMessage(Globals.hEdit, EM_SETSEL, GetWindowTextLength(Globals.hEdit), -1);
+		SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
+		DIALOG_EditTimeDate();
+		SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
+	}
 
-    SetFileName(szFileName);
-    UpdateWindowCaption(TRUE);
-    NOTEPAD_EnableSearchMenu();
+	SetFileName(szFileName);
+	UpdateWindowCaption(TRUE);
+	NOTEPAD_EnableSearchMenu(); // 찾기 메뉴 활성화
 done:
-    if (hFile != INVALID_HANDLE_VALUE)
-        CloseHandle(hFile);
-    if (pszText)
-        HeapFree(GetProcessHeap(), 0, pszText);
+	if (hFile != INVALID_HANDLE_VALUE)
+		CloseHandle(hFile);
+	if (pszText)
+		HeapFree(GetProcessHeap(), 0, pszText);
 }
 
-VOID DIALOG_FileNew(VOID)
+VOID DIALOG_FileNew(VOID) // 새 파일 만들기 선택 시 호출
 {
-    /* Close any files and prompt to save changes */
-    if (DoCloseFile()) {
-        SetWindowText(Globals.hEdit, empty_str);
-        SendMessage(Globals.hEdit, EM_EMPTYUNDOBUFFER, 0, 0);
-        SetFocus(Globals.hEdit);
-        NOTEPAD_EnableSearchMenu();
-    }
+	/* Close any files and prompt to save changes */
+	if (DoCloseFile()) { // 기존 파일 닫기
+		SetWindowText(Globals.hEdit, empty_str);
+		SendMessage(Globals.hEdit, EM_EMPTYUNDOBUFFER, 0, 0);
+		SetFocus(Globals.hEdit);
+		NOTEPAD_EnableSearchMenu();
+	}
 }
 
-VOID DIALOG_FileOpen(VOID)
+VOID DIALOG_FileOpen(VOID) // 파일 열기
 {
-    OPENFILENAME openfilename;
-    TCHAR szPath[MAX_PATH];
+	OPENFILENAME openfilename; // 파일 정보 담고 있는 구조체
+	TCHAR szPath[MAX_PATH];
 
-    ZeroMemory(&openfilename, sizeof(openfilename));
+	ZeroMemory(&openfilename, sizeof(openfilename));
 
-    if (Globals.szFileName[0] == 0)
-        _tcscpy(szPath, txt_files);
-    else
-        _tcscpy(szPath, Globals.szFileName);
+	if (Globals.szFileName[0] == 0)
+		_tcscpy(szPath, txt_files);
+	else
+		_tcscpy(szPath, Globals.szFileName);
 
-    openfilename.lStructSize = sizeof(openfilename);
-    openfilename.hwndOwner = Globals.hMainWnd;
-    openfilename.hInstance = Globals.hInstance;
-    openfilename.lpstrFilter = Globals.szFilter;
-    openfilename.lpstrFile = szPath;
-    openfilename.nMaxFile = ARRAY_SIZE(szPath);
-    openfilename.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
-    openfilename.lpstrDefExt = szDefaultExt;
+	openfilename.lStructSize = sizeof(openfilename);
+	openfilename.hwndOwner = Globals.hMainWnd;
+	openfilename.hInstance = Globals.hInstance;
+	openfilename.lpstrFilter = Globals.szFilter;
+	openfilename.lpstrFile = szPath;
+	openfilename.nMaxFile = ARRAY_SIZE(szPath);
+	openfilename.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
+	openfilename.lpstrDefExt = szDefaultExt; // 기본 확장자 설정
 
-    if (GetOpenFileName(&openfilename)) {
-        if (FileExists(openfilename.lpstrFile))
-            DoOpenFile(openfilename.lpstrFile);
-        else
-            AlertFileNotFound(openfilename.lpstrFile);
-    }
+	if (GetOpenFileName(&openfilename)) { // 파일열기 다이얼로그 오픈
+		if (FileExists(openfilename.lpstrFile))
+			DoOpenFile(openfilename.lpstrFile);
+		else
+			AlertFileNotFound(openfilename.lpstrFile);
+	}
 }
 
-BOOL DIALOG_FileSave(VOID)
+BOOL DIALOG_FileSave(VOID) // 파일저장 클릭 시 호출 => 이후 DoSaveFile로 저장 처리
 {
-    if (Globals.szFileName[0] == 0)
-    {
-        return DIALOG_FileSaveAs();
-    }
-    else if (DoSaveFile())
-    {
-        UpdateWindowCaption(TRUE);
-        return TRUE;
-    }
-    return FALSE;
+	if (Globals.szFileName[0] == 0) // 새 파일이면 => 다른이름으로 저장과 같은 동작
+	{
+		return DIALOG_FileSaveAs();
+	}
+	else if (DoSaveFile()) // 기존파일이면
+	{
+		UpdateWindowCaption(TRUE);
+		return TRUE;
+	}
+	return FALSE;
 }
 
 static UINT_PTR
 CALLBACK
-DIALOG_FileSaveAs_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
+DIALOG_FileSaveAs_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) // 다른이름으로 저장 수행(콜백함수)
 {
-    TCHAR szText[128];
-    HWND hCombo;
+	TCHAR szText[128];
+	HWND hCombo;
 
-    UNREFERENCED_PARAMETER(wParam);
+	UNREFERENCED_PARAMETER(wParam);
 
-    switch(msg)
-    {
-        case WM_INITDIALOG:
-            hCombo = GetDlgItem(hDlg, ID_ENCODING);
+	switch (msg)
+	{
+	case WM_INITDIALOG: // 다이얼로그 오픈 시 초기화
+		hCombo = GetDlgItem(hDlg, ID_ENCODING); // 인코딩 종류에 관한 핸들포인터 얻기
 
-            LoadString(Globals.hInstance, STRING_ANSI, szText, ARRAY_SIZE(szText));
-            SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM) szText);
+		LoadString(Globals.hInstance, STRING_ANSI, szText, ARRAY_SIZE(szText));
+		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
 
-            LoadString(Globals.hInstance, STRING_UNICODE, szText, ARRAY_SIZE(szText));
-            SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM) szText);
+		LoadString(Globals.hInstance, STRING_UNICODE, szText, ARRAY_SIZE(szText));
+		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
 
-            LoadString(Globals.hInstance, STRING_UNICODE_BE, szText, ARRAY_SIZE(szText));
-            SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM) szText);
+		LoadString(Globals.hInstance, STRING_UNICODE_BE, szText, ARRAY_SIZE(szText));
+		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
 
-            LoadString(Globals.hInstance, STRING_UTF8, szText, ARRAY_SIZE(szText));
-            SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM) szText);
+		LoadString(Globals.hInstance, STRING_UTF8, szText, ARRAY_SIZE(szText));
+		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
 
-            SendMessage(hCombo, CB_SETCURSEL, Globals.encFile, 0);
+		SendMessage(hCombo, CB_SETCURSEL, Globals.encFile, 0);
 
-            hCombo = GetDlgItem(hDlg, ID_EOLN);
+		hCombo = GetDlgItem(hDlg, ID_EOLN); // 라인엔드 관한 핸들포인터 얻기
 
-            LoadString(Globals.hInstance, STRING_CRLF, szText, ARRAY_SIZE(szText));
-            SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM) szText);
+		LoadString(Globals.hInstance, STRING_CRLF, szText, ARRAY_SIZE(szText));
+		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
 
-            LoadString(Globals.hInstance, STRING_LF, szText, ARRAY_SIZE(szText));
-            SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM) szText);
+		LoadString(Globals.hInstance, STRING_LF, szText, ARRAY_SIZE(szText));
+		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
 
-            LoadString(Globals.hInstance, STRING_CR, szText, ARRAY_SIZE(szText));
-            SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM) szText);
+		LoadString(Globals.hInstance, STRING_CR, szText, ARRAY_SIZE(szText));
+		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
 
-            SendMessage(hCombo, CB_SETCURSEL, Globals.iEoln, 0);
-            break;
+		SendMessage(hCombo, CB_SETCURSEL, Globals.iEoln, 0);
+		break;
 
-        case WM_NOTIFY:
-            if (((NMHDR *) lParam)->code == CDN_FILEOK)
-            {
-                hCombo = GetDlgItem(hDlg, ID_ENCODING);
-                if (hCombo)
-                    Globals.encFile = (int) SendMessage(hCombo, CB_GETCURSEL, 0, 0);
+	case WM_NOTIFY: // 다이얼로그 작동 중 메시지
+		if (((NMHDR *)lParam)->code == CDN_FILEOK) // OK 버튼 클릭시 설정 사항 반영
+		{
+			hCombo = GetDlgItem(hDlg, ID_ENCODING);
+			if (hCombo)
+				Globals.encFile = (int)SendMessage(hCombo, CB_GETCURSEL, 0, 0);
 
-                hCombo = GetDlgItem(hDlg, ID_EOLN);
-                if (hCombo)
-                    Globals.iEoln = (int) SendMessage(hCombo, CB_GETCURSEL, 0, 0);
-            }
-            break;
-    }
-    return 0;
+			hCombo = GetDlgItem(hDlg, ID_EOLN);
+			if (hCombo)
+				Globals.iEoln = (int)SendMessage(hCombo, CB_GETCURSEL, 0, 0);
+		}
+		break;
+	}
+	return 0;
 }
 
-BOOL DIALOG_FileSaveAs(VOID)
+BOOL DIALOG_FileSaveAs(VOID) //다른이름으로 저장 클릭 시
 {
-    OPENFILENAME saveas;
-    TCHAR szPath[MAX_PATH];
+	OPENFILENAME saveas;
+	TCHAR szPath[MAX_PATH];
 
-    ZeroMemory(&saveas, sizeof(saveas));
+	ZeroMemory(&saveas, sizeof(saveas));
 
-    if (Globals.szFileName[0] == 0)
-        _tcscpy(szPath, txt_files);
-    else
-        _tcscpy(szPath, Globals.szFileName);
+	if (Globals.szFileName[0] == 0)
+		_tcscpy(szPath, txt_files);
+	else
+		_tcscpy(szPath, Globals.szFileName);
 
-    saveas.lStructSize = sizeof(OPENFILENAME);
-    saveas.hwndOwner = Globals.hMainWnd;
-    saveas.hInstance = Globals.hInstance;
-    saveas.lpstrFilter = Globals.szFilter;
-    saveas.lpstrFile = szPath;
-    saveas.nMaxFile = ARRAY_SIZE(szPath);
-    saveas.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
-                   OFN_EXPLORER | OFN_ENABLETEMPLATE | OFN_ENABLEHOOK;
-    saveas.lpstrDefExt = szDefaultExt;
-    saveas.lpTemplateName = MAKEINTRESOURCE(DIALOG_ENCODING);
-    saveas.lpfnHook = DIALOG_FileSaveAs_Hook;
+	saveas.lStructSize = sizeof(OPENFILENAME);
+	saveas.hwndOwner = Globals.hMainWnd;
+	saveas.hInstance = Globals.hInstance;
+	saveas.lpstrFilter = Globals.szFilter;
+	saveas.lpstrFile = szPath;
+	saveas.nMaxFile = ARRAY_SIZE(szPath);
+	saveas.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
+		OFN_EXPLORER | OFN_ENABLETEMPLATE | OFN_ENABLEHOOK;
+	saveas.lpstrDefExt = szDefaultExt;
+	saveas.lpTemplateName = MAKEINTRESOURCE(DIALOG_ENCODING);
+	saveas.lpfnHook = DIALOG_FileSaveAs_Hook; // DIALOG_FileSaveAs_Hook 콜백함수 등록
 
-    if (GetSaveFileName(&saveas))
-    {
-        /* HACK: Because in ROS, Save-As boxes don't check the validity
-         * of file names and thus, here, szPath can be invalid !! We only
-         * see its validity when we call DoSaveFile()... */
-        SetFileName(szPath);
-        if (DoSaveFile())
-        {
-            UpdateWindowCaption(TRUE);
-            return TRUE;
-        }
-        else
-        {
-            SetFileName(_T(""));
-            return FALSE;
-        }
-    }
-    else
-    {
-        return FALSE;
-    }
+	if (GetSaveFileName(&saveas)) // 저장 다이얼로그 로드
+	{
+		/* HACK: Because in ROS, Save-As boxes don't check the validity
+		* of file names and thus, here, szPath can be invalid !! We only
+		* see its validity when we call DoSaveFile()... */
+		SetFileName(szPath);
+		if (DoSaveFile())
+		{
+			UpdateWindowCaption(TRUE);
+			return TRUE;
+		}
+		else
+		{
+			SetFileName(_T(""));
+			return FALSE;
+		}
+	}
+	else
+	{
+		return FALSE;
+	}
 }
 
-VOID DIALOG_FilePrint(VOID)
+VOID DIALOG_FilePrint(VOID) // 파일 프린트
 {
-    DOCINFO di;
-    TEXTMETRIC tm;
-    PRINTDLG printer;
-    SIZE szMetric;
-    int border;
-    int xLeft, yTop, pagecount, dopage, copycount;
-    unsigned int i;
-    LOGFONT hdrFont;
-    HFONT font, old_font=0;
-    DWORD size;
-    LPTSTR pTemp;
-    static const TCHAR times_new_roman[] = _T("Times New Roman");
-    RECT rcPrintRect;
+	DOCINFO di;
+	TEXTMETRIC tm;
+	PRINTDLG printer;
+	SIZE szMetric;
+	int border;
+	int xLeft, yTop, pagecount, dopage, copycount;
+	unsigned int i;
+	LOGFONT hdrFont; // 폰트 정보 담은 구조체
+	HFONT font, old_font = 0;
+	DWORD size;
+	LPTSTR pTemp;
+	static const TCHAR times_new_roman[] = _T("Times New Roman");
+	RECT rcPrintRect;
 
-    /* Get a small font and print some header info on each page */
-    ZeroMemory(&hdrFont, sizeof(hdrFont));
-    hdrFont.lfHeight = 100;
-    hdrFont.lfWeight = FW_BOLD;
-    hdrFont.lfCharSet = ANSI_CHARSET;
-    hdrFont.lfOutPrecision = OUT_DEFAULT_PRECIS;
-    hdrFont.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-    hdrFont.lfQuality = PROOF_QUALITY;
-    hdrFont.lfPitchAndFamily = VARIABLE_PITCH | FF_ROMAN;
-    _tcscpy(hdrFont.lfFaceName, times_new_roman);
+	/* Get a small font and print some header info on each page */
+	ZeroMemory(&hdrFont, sizeof(hdrFont));
+	hdrFont.lfHeight = 100;
+	hdrFont.lfWeight = FW_BOLD;
+	hdrFont.lfCharSet = ANSI_CHARSET;
+	hdrFont.lfOutPrecision = OUT_DEFAULT_PRECIS;
+	hdrFont.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+	hdrFont.lfQuality = PROOF_QUALITY;
+	hdrFont.lfPitchAndFamily = VARIABLE_PITCH | FF_ROMAN;
+	_tcscpy(hdrFont.lfFaceName, times_new_roman);
 
-    font = CreateFontIndirect(&hdrFont);
+	font = CreateFontIndirect(&hdrFont); // LOGFONT 구조체를 바탕으로 폰트 생성
 
-    /* Get Current Settings */
-    ZeroMemory(&printer, sizeof(printer));
-    printer.lStructSize = sizeof(printer);
-    printer.hwndOwner = Globals.hMainWnd;
-    printer.hInstance = Globals.hInstance;
+										 /* Get Current Settings */
+	ZeroMemory(&printer, sizeof(printer));
+	printer.lStructSize = sizeof(printer);
+	printer.hwndOwner = Globals.hMainWnd;
+	printer.hInstance = Globals.hInstance;
 
-    /* Set some default flags */
-    printer.Flags = PD_RETURNDC | PD_SELECTION;
+	/* Set some default flags */
+	printer.Flags = PD_RETURNDC | PD_SELECTION;
 
-    /* Disable the selection radio button if there is no text selected */
-    if (!GetSelectionTextLength(Globals.hEdit))
-    {
-        printer.Flags = printer.Flags | PD_NOSELECTION;
-    }
+	/* Disable the selection radio button if there is no text selected */
+	if (!GetSelectionTextLength(Globals.hEdit))
+	{
+		printer.Flags = printer.Flags | PD_NOSELECTION;
+	}
 
-    printer.nFromPage = 0;
-    printer.nMinPage = 1;
-    /* we really need to calculate number of pages to set nMaxPage and nToPage */
-    printer.nToPage = (WORD)-1;
-    printer.nMaxPage = (WORD)-1;
+	printer.nFromPage = 0;
+	printer.nMinPage = 1;
+	// FIXME : 문제가 있다고 여겨짐
+	printer.nToPage = (WORD)-1;
+	printer.nMaxPage = (WORD)-1;
 
-    /* Let commdlg manage copy settings */
-    printer.nCopies = (WORD)PD_USEDEVMODECOPIES;
+	/* Let commdlg manage copy settings */
+	printer.nCopies = (WORD)PD_USEDEVMODECOPIES;
 
-    printer.hDevMode = Globals.hDevMode;
-    printer.hDevNames = Globals.hDevNames;
+	printer.hDevMode = Globals.hDevMode;
+	printer.hDevNames = Globals.hDevNames;
 
-    if (!PrintDlg(&printer))
-    {
-        DeleteObject(font);
-        return;
-    }
+	if (!PrintDlg(&printer)) // 프린트 다이얼로그를 열기
+	{
+		DeleteObject(font);
+		return;
+	}
 
-    Globals.hDevMode = printer.hDevMode;
-    Globals.hDevNames = printer.hDevNames;
+	Globals.hDevMode = printer.hDevMode;
+	Globals.hDevNames = printer.hDevNames;
 
-    assert(printer.hDC != 0);
+	assert(printer.hDC != 0);
 
-    /* initialize DOCINFO */
-    di.cbSize = sizeof(DOCINFO);
-    di.lpszDocName = Globals.szFileTitle;
-    di.lpszOutput = NULL;
-    di.lpszDatatype = NULL;
-    di.fwType = 0;
+	/* initialize DOCINFO */
+	di.cbSize = sizeof(DOCINFO);
+	di.lpszDocName = Globals.szFileTitle;
+	di.lpszOutput = NULL;
+	di.lpszDatatype = NULL;
+	di.fwType = 0;
 
-    if (StartDoc(printer.hDC, &di) <= 0)
-    {
-        DeleteObject(font);
-        return;
-    }
+	if (StartDoc(printer.hDC, &di) <= 0) // 프린트 작업 수행
+	{
+		DeleteObject(font);
+		return;
+	}
 
 
-    /* Get the file text */
-    if (printer.Flags & PD_SELECTION)
-    {
-        size = GetSelectionTextLength(Globals.hEdit) + 1;
-    }
-    else
-    {
-        size = GetWindowTextLength(Globals.hEdit) + 1;
-    }
+	/* Get the file text */
+	if (printer.Flags & PD_SELECTION)
+	{
+		size = GetSelectionTextLength(Globals.hEdit) + 1;
+	}
+	else
+	{
+		size = GetWindowTextLength(Globals.hEdit) + 1;
+	}
 
-    pTemp = HeapAlloc(GetProcessHeap(), 0, size * sizeof(TCHAR));
-    if (!pTemp)
-    {
-        EndDoc(printer.hDC);
-        DeleteObject(font);
-        ShowLastError();
-        return;
-    }
+	pTemp = HeapAlloc(GetProcessHeap(), 0, size * sizeof(TCHAR)); // 버퍼 할당
+	if (!pTemp)
+	{
+		EndDoc(printer.hDC);
+		DeleteObject(font);
+		ShowLastError();
+		return;
+	}
 
-    if (printer.Flags & PD_SELECTION)
-    {
-        size = GetSelectionText(Globals.hEdit, pTemp, size);
-    }
-    else
-    {
-        size = GetWindowText(Globals.hEdit, pTemp, size);
-    }
+	if (printer.Flags & PD_SELECTION)
+	{
+		size = GetSelectionText(Globals.hEdit, pTemp, size);
+	}
+	else
+	{
+		size = GetWindowText(Globals.hEdit, pTemp, size);
+	}
 
-    /* Get the current printing area */
-    rcPrintRect = GetPrintingRect(printer.hDC, Globals.lMargins);
+	/* Get the current printing area */
+	rcPrintRect = GetPrintingRect(printer.hDC, Globals.lMargins); // 프린팅 영역 (RECT)
 
-    /* Ensure that each logical unit maps to one pixel */
-    SetMapMode(printer.hDC, MM_TEXT);
+																  /* Ensure that each logical unit maps to one pixel */
+	SetMapMode(printer.hDC, MM_TEXT);
 
-    /* Needed to get the correct height of a text line */
-    GetTextMetrics(printer.hDC, &tm);
+	/* Needed to get the correct height of a text line */ // 물리적인 폰트의 크기를 알아냄
+	GetTextMetrics(printer.hDC, &tm);
 
-    border = 15;
-    for (copycount=1; copycount <= printer.nCopies; copycount++) {
-        i = 0;
-        pagecount = 1;
-        do {
-            /* Don't start a page if none of the conditions below are true */
-            dopage = 0;
+	border = 15;
+	for (copycount = 1; copycount <= printer.nCopies; copycount++) { // 반복문을 돌며 여러 페이지 출력
+		i = 0;
+		pagecount = 1;
+		do {
+			/* Don't start a page if none of the conditions below are true */
+			dopage = 0;
 
-            /* The user wants to print the current selection */
-            if (printer.Flags & PD_SELECTION)
-            {
-                dopage = 1;
-            }
+			/* The user wants to print the current selection */
+			if (printer.Flags & PD_SELECTION)
+			{
+				dopage = 1;
+			}
 
-            /* The user wants to print the entire document */
-            if (!(printer.Flags & PD_PAGENUMS) && !(printer.Flags & PD_SELECTION))
-            {
-                dopage = 1;
-            }
+			/* The user wants to print the entire document */
+			if (!(printer.Flags & PD_PAGENUMS) && !(printer.Flags & PD_SELECTION))
+			{
+				dopage = 1;
+			}
 
-            /* The user wants to print a specified range of pages */
-            if ((pagecount >= printer.nFromPage && pagecount <= printer.nToPage))
-            {
-                dopage = 1;
-            }
+			/* The user wants to print a specified range of pages */
+			if ((pagecount >= printer.nFromPage && pagecount <= printer.nToPage))
+			{
+				dopage = 1;
+			}
 
-            old_font = SelectObject(printer.hDC, font);
+			old_font = SelectObject(printer.hDC, font);
 
-            if (dopage) {
-                if (StartPage(printer.hDC) <= 0) {
-                    SelectObject(printer.hDC, old_font);
-                    EndDoc(printer.hDC);
-                    DeleteDC(printer.hDC);
-                    HeapFree(GetProcessHeap(), 0, pTemp);
-                    DeleteObject(font);
-                    AlertPrintError();
-                    return;
-                }
+			if (dopage) {
+				if (StartPage(printer.hDC) <= 0) {
+					SelectObject(printer.hDC, old_font);
+					EndDoc(printer.hDC);
+					DeleteDC(printer.hDC);
+					HeapFree(GetProcessHeap(), 0, pTemp);
+					DeleteObject(font);
+					AlertPrintError();
+					return;
+				}
 
-                SetViewportOrgEx(printer.hDC, rcPrintRect.left, rcPrintRect.top, NULL);
+				SetViewportOrgEx(printer.hDC, rcPrintRect.left, rcPrintRect.top, NULL);
 
-                /* Write a rectangle and header at the top of each page */
-                Rectangle(printer.hDC, border, border, rcPrintRect.right - border, border + tm.tmHeight * 2);
-                /* I don't know what's up with this TextOut command. This comes out
-                kind of mangled.
-                */
-                TextOut(printer.hDC,
-                        border * 2,
-                        border + tm.tmHeight / 2,
-                        Globals.szFileTitle,
-                        lstrlen(Globals.szFileTitle));
-            }
+				/* Write a rectangle and header at the top of each page */
+				Rectangle(printer.hDC, border, border, rcPrintRect.right - border, border + tm.tmHeight * 2);
+				/* I don't know what's up with this TextOut command. This comes out
+				kind of mangled.
+				*/
+				TextOut(printer.hDC,
+					border * 2,
+					border + tm.tmHeight / 2,
+					Globals.szFileTitle,
+					lstrlen(Globals.szFileTitle));
+			}
 
-            /* The starting point for the main text */
-            xLeft = 0;
-            yTop = border + tm.tmHeight * 4;
+			/* The starting point for the main text */
+			xLeft = 0;
+			yTop = border + tm.tmHeight * 4;
 
-            SelectObject(printer.hDC, old_font);
+			SelectObject(printer.hDC, old_font);
 
-            /* Since outputting strings is giving me problems, output the main
-             * text one character at a time. */
-            do {
-                if (pTemp[i] == '\n') {
-                    xLeft = 0;
-                    yTop += tm.tmHeight;
-                }
-                else if (pTemp[i] != '\r') {
-                    if (dopage)
-                        TextOut(printer.hDC, xLeft, yTop, &pTemp[i], 1);
+			/* Since outputting strings is giving me problems, output the main
+			* text one character at a time. */
+			do {
+				if (pTemp[i] == '\n') { // 줄 넘기기
+					xLeft = 0;
+					yTop += tm.tmHeight;
+				}
+				else if (pTemp[i] != '\r') { // \r 무시하기
+					if (dopage)
+						TextOut(printer.hDC, xLeft, yTop, &pTemp[i], 1);
 
-                    /* We need to get the width for each individual char, since a proportional font may be used */
-                    GetTextExtentPoint32(printer.hDC, &pTemp[i], 1, &szMetric);
-                    xLeft += szMetric.cx;
+					/* We need to get the width for each individual char, since a proportional font may be used */
+					GetTextExtentPoint32(printer.hDC, &pTemp[i], 1, &szMetric);
+					xLeft += szMetric.cx;
 
-                    /* Insert a line break if the current line does not fit into the printing area */
-                    if (xLeft > rcPrintRect.right)
-                    {
-                        xLeft = 0;
-                        yTop = yTop + tm.tmHeight;
-                    }
-                }
-            } while (i++ < size && yTop < rcPrintRect.bottom);
+					/* Insert a line break if the current line does not fit into the printing area */
+					if (xLeft > rcPrintRect.right) // 여백을 초과 시 다음줄로
+					{
+						xLeft = 0;
+						yTop = yTop + tm.tmHeight;
+					}
+				}
+			} while (i++ < size && yTop < rcPrintRect.bottom);
 
-            if (dopage)
-                EndPage(printer.hDC);
-            pagecount++;
-        } while (i < size);
-    }
+			if (dopage)
+				EndPage(printer.hDC);
+			pagecount++;
+		} while (i < size);
+	}
 
-    if (old_font != 0)
-        SelectObject(printer.hDC, old_font);
-    EndDoc(printer.hDC);
-    DeleteDC(printer.hDC);
-    HeapFree(GetProcessHeap(), 0, pTemp);
-    DeleteObject(font);
+	if (old_font != 0)
+		SelectObject(printer.hDC, old_font);
+	EndDoc(printer.hDC); // 프린트 종ㄽ
+	DeleteDC(printer.hDC);
+	HeapFree(GetProcessHeap(), 0, pTemp);
+	DeleteObject(font);
 }
 
-VOID DIALOG_FileExit(VOID)
+VOID DIALOG_FileExit(VOID) // 나가기 선택
 {
-    PostMessage(Globals.hMainWnd, WM_CLOSE, 0, 0l);
+	PostMessage(Globals.hMainWnd, WM_CLOSE, 0, 0l);
 }
 
-VOID DIALOG_EditUndo(VOID)
+VOID DIALOG_EditUndo(VOID) // 실행취소
 {
-    SendMessage(Globals.hEdit, EM_UNDO, 0, 0);
+	SendMessage(Globals.hEdit, EM_UNDO, 0, 0);
 }
 
-VOID DIALOG_EditCut(VOID)
+VOID DIALOG_EditCut(VOID) // 잘라내기
 {
-    SendMessage(Globals.hEdit, WM_CUT, 0, 0);
+	SendMessage(Globals.hEdit, WM_CUT, 0, 0);
 }
 
-VOID DIALOG_EditCopy(VOID)
+VOID DIALOG_EditCopy(VOID) //복사하기
 {
-    SendMessage(Globals.hEdit, WM_COPY, 0, 0);
+	SendMessage(Globals.hEdit, WM_COPY, 0, 0);
 }
 
-VOID DIALOG_EditPaste(VOID)
+VOID DIALOG_EditPaste(VOID) //붙여넣기
 {
-    SendMessage(Globals.hEdit, WM_PASTE, 0, 0);
+	SendMessage(Globals.hEdit, WM_PASTE, 0, 0);
 }
 
-VOID DIALOG_EditDelete(VOID)
+VOID DIALOG_EditDelete(VOID) //지우기
 {
-    SendMessage(Globals.hEdit, WM_CLEAR, 0, 0);
+	SendMessage(Globals.hEdit, WM_CLEAR, 0, 0);
 }
 
-VOID DIALOG_EditSelectAll(VOID)
+VOID DIALOG_EditSelectAll(VOID) // 모두 선택
 {
-    SendMessage(Globals.hEdit, EM_SETSEL, 0, (LPARAM)-1);
+	SendMessage(Globals.hEdit, EM_SETSEL, 0, (LPARAM)-1);
 }
 
-VOID DIALOG_EditTimeDate(VOID)
+VOID DIALOG_EditTimeDate(VOID) // 현재 날짜 및 시간 삽입
 {
-    SYSTEMTIME st;
-    TCHAR szDate[MAX_STRING_LEN];
-    TCHAR szText[MAX_STRING_LEN * 2 + 2];
+	SYSTEMTIME st;
+	TCHAR szDate[MAX_STRING_LEN];
+	TCHAR szText[MAX_STRING_LEN * 2 + 2];
 
-    GetLocalTime(&st);
+	GetLocalTime(&st);
 
-    GetTimeFormat(LOCALE_USER_DEFAULT, 0, &st, NULL, szDate, MAX_STRING_LEN);
-    _tcscpy(szText, szDate);
-    _tcscat(szText, _T(" "));
-    GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, szDate, MAX_STRING_LEN);
-    _tcscat(szText, szDate);
-    SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)szText);
+	GetTimeFormat(LOCALE_USER_DEFAULT, 0, &st, NULL, szDate, MAX_STRING_LEN);
+	_tcscpy(szText, szDate);
+	_tcscat(szText, _T(" "));
+	GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, szDate, MAX_STRING_LEN);
+	_tcscat(szText, szDate);
+	SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)szText); //날짜와 시간을 붙여 삽입
 }
 
-VOID DoCreateStatusBar(VOID)
+VOID DoCreateStatusBar(VOID) // 상태 바 만들기
 {
-    RECT rc;
-    RECT rcstatus;
-    BOOL bStatusBarVisible;
+	RECT rc;
+	RECT rcstatus;
+	BOOL bStatusBarVisible;
 
-    /* Check if status bar object already exists. */
-    if (Globals.hStatusBar == NULL)
-    {
-        /* Try to create the status bar */
-        Globals.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE | WS_EX_STATICEDGE,
-                                                NULL,
-                                                Globals.hMainWnd,
-                                                CMD_STATUSBAR_WND_ID);
+	/* Check if status bar object already exists. */
+	if (Globals.hStatusBar == NULL)
+	{
+		/* Try to create the status bar */
+		Globals.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE | WS_EX_STATICEDGE, // 상태바 윈도우 만들기
+			NULL,
+			Globals.hMainWnd,
+			CMD_STATUSBAR_WND_ID);
 
-        if (Globals.hStatusBar == NULL)
-        {
-            ShowLastError();
-            return;
-        }
+		if (Globals.hStatusBar == NULL)
+		{
+			ShowLastError();
+			return;
+		}
 
-        /* Load the string for formatting column/row text output */
-        LoadString(Globals.hInstance, STRING_LINE_COLUMN, Globals.szStatusBarLineCol, MAX_PATH - 1);
+		/* Load the string for formatting column/row text output */
+		LoadString(Globals.hInstance, STRING_LINE_COLUMN, Globals.szStatusBarLineCol, MAX_PATH - 1);
 
-        /* Set the status bar for single-text output */
-        SendMessage(Globals.hStatusBar, SB_SIMPLE, (WPARAM)TRUE, (LPARAM)0);
-    }
+		/* Set the status bar for single-text output */
+		SendMessage(Globals.hStatusBar, SB_SIMPLE, (WPARAM)TRUE, (LPARAM)0);
+	}
 
-    /* Set status bar visiblity according to the settings. */
-    if (Globals.bWrapLongLines == TRUE || Globals.bShowStatusBar == FALSE)
-    {
-        bStatusBarVisible = FALSE;
-        ShowWindow(Globals.hStatusBar, SW_HIDE);
-    }
-    else
-    {
-        bStatusBarVisible = TRUE;
-        ShowWindow(Globals.hStatusBar, SW_SHOW);
-        SendMessage(Globals.hStatusBar, WM_SIZE, 0, 0);
-    }
+	/* Set status bar visiblity according to the settings. */
+	if (Globals.bWrapLongLines == TRUE || Globals.bShowStatusBar == FALSE)
+	{
+		bStatusBarVisible = FALSE;
+		ShowWindow(Globals.hStatusBar, SW_HIDE);
+	}
+	else
+	{
+		bStatusBarVisible = TRUE;
+		ShowWindow(Globals.hStatusBar, SW_SHOW);
+		SendMessage(Globals.hStatusBar, WM_SIZE, 0, 0);
+	}
 
-    /* Set check state in show status bar item. */
-    if (bStatusBarVisible)
-    {
-        CheckMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_CHECKED);
-    }
-    else
-    {
-        CheckMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_UNCHECKED);
-    }
+	/* Set check state in show status bar item. */
+	if (bStatusBarVisible)
+	{
+		CheckMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_CHECKED);
+	}
+	else
+	{
+		CheckMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_UNCHECKED);
+	}
 
-    /* Update menu mar with the previous changes */
-    DrawMenuBar(Globals.hMainWnd);
+	/* Update menu mar with the previous changes */
+	DrawMenuBar(Globals.hMainWnd); // 메뉴 바 그리기
 
-    /* Sefety test is edit control exists */
-    if (Globals.hEdit != NULL)
-    {
-        /* Retrieve the sizes of the controls */
-        GetClientRect(Globals.hMainWnd, &rc);
-        GetClientRect(Globals.hStatusBar, &rcstatus);
+								   /* Sefety test is edit control exists */
+	if (Globals.hEdit != NULL)
+	{
+		/* Retrieve the sizes of the controls */
+		GetClientRect(Globals.hMainWnd, &rc);
+		GetClientRect(Globals.hStatusBar, &rcstatus);
 
-        /* If status bar is currently visible, update dimensions of edit control */
-        if (bStatusBarVisible)
-            rc.bottom -= (rcstatus.bottom - rcstatus.top);
+		/* If status bar is currently visible, update dimensions of edit control */
+		if (bStatusBarVisible)
+			rc.bottom -= (rcstatus.bottom - rcstatus.top);
 
-        /* Resize edit control to right size. */
-        MoveWindow(Globals.hEdit,
-                   rc.left,
-                   rc.top,
-                   rc.right - rc.left,
-                   rc.bottom - rc.top,
-                   TRUE);
-    }
+		/* Resize edit control to right size. */
+		MoveWindow(Globals.hEdit,
+			rc.left,
+			rc.top,
+			rc.right - rc.left,
+			rc.bottom - rc.top,
+			TRUE);
+	}
 
-    /* Update content with current row/column text */
-    DIALOG_StatusBarUpdateCaretPos();
+	/* Update content with current row/column text */
+	DIALOG_StatusBarUpdateCaretPos(); // 상태바 위치값 최신화
 }
 
-VOID DoCreateEditWindow(VOID)
+VOID DoCreateEditWindow(VOID) // 편집 창 만들기
 {
-    DWORD dwStyle;
-    int iSize;
-    LPTSTR pTemp = NULL;
-    BOOL bModified = FALSE;
+	DWORD dwStyle;
+	int iSize;
+	LPTSTR pTemp = NULL;
+	BOOL bModified = FALSE;
 
-    iSize = 0;
+	iSize = 0;
 
-    /* If the edit control already exists, try to save its content */
-    if (Globals.hEdit != NULL)
-    {
-        /* number of chars currently written into the editor. */
-        iSize = GetWindowTextLength(Globals.hEdit);
-        if (iSize)
-        {
-            /* Allocates temporary buffer. */
-            pTemp = HeapAlloc(GetProcessHeap(), 0, (iSize + 1) * sizeof(TCHAR));
-            if (!pTemp)
-            {
-                ShowLastError();
-                return;
-            }
+	/* If the edit control already exists, try to save its content */
+	if (Globals.hEdit != NULL)
+	{
+		/* number of chars currently written into the editor. */
+		iSize = GetWindowTextLength(Globals.hEdit);
+		if (iSize)
+		{
+			/* Allocates temporary buffer. */
+			pTemp = HeapAlloc(GetProcessHeap(), 0, (iSize + 1) * sizeof(TCHAR));
+			if (!pTemp)
+			{
+				ShowLastError();
+				return;
+			}
 
-            /* Recover the text into the control. */
-            GetWindowText(Globals.hEdit, pTemp, iSize + 1);
+			/* Recover the text into the control. */
+			GetWindowText(Globals.hEdit, pTemp, iSize + 1); // 기존에 있던 내용 잠시 백업
 
-            if (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0))
-                bModified = TRUE;
-        }
+			if (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0))
+				bModified = TRUE;
+		}
 
-        /* Restore original window procedure */
-        SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)Globals.EditProc);
+		/* Restore original window procedure */
+		SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)Globals.EditProc);
 
-        /* Destroy the edit control */
-        DestroyWindow(Globals.hEdit);
-    }
+		/* Destroy the edit control */
+		DestroyWindow(Globals.hEdit); // 현재 에딧 컨트롤 제거
+	}
 
-    /* Update wrap status into the main menu and recover style flags */
-    if (Globals.bWrapLongLines)
-    {
-        dwStyle = EDIT_STYLE_WRAP;
-        EnableMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
-    } else {
-        dwStyle = EDIT_STYLE;
-        EnableMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_ENABLED);
-    }
+	/* Update wrap status into the main menu and recover style flags */
+	if (Globals.bWrapLongLines) // 자동 줄 바꿈 설정 시
+	{
+		dwStyle = EDIT_STYLE_WRAP;
+		EnableMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED); // 상태 바 메뉴 비활성화
+	}
+	else {
+		dwStyle = EDIT_STYLE;
+		EnableMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_ENABLED);
+	}
 
-    /* Update previous changes */
-    DrawMenuBar(Globals.hMainWnd);
+	/* Update previous changes */
+	DrawMenuBar(Globals.hMainWnd); // 메뉴 바 그리기
 
-    /* Create the new edit control */
-    Globals.hEdit = CreateWindowEx(WS_EX_CLIENTEDGE,
-                                   EDIT_CLASS,
-                                   NULL,
-                                   dwStyle,
-                                   CW_USEDEFAULT,
-                                   CW_USEDEFAULT,
-                                   CW_USEDEFAULT,
-                                   CW_USEDEFAULT,
-                                   Globals.hMainWnd,
-                                   NULL,
-                                   Globals.hInstance,
-                                   NULL);
+								   /* Create the new edit control */
+	Globals.hEdit = CreateWindowEx(WS_EX_CLIENTEDGE, // 새 에딧 컨트롤 할당
+		EDIT_CLASS,
+		NULL,
+		dwStyle,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		CW_USEDEFAULT,
+		Globals.hMainWnd,
+		NULL,
+		Globals.hInstance,
+		NULL);
 
-    if (Globals.hEdit == NULL)
-    {
-        if (pTemp)
-        {
-            HeapFree(GetProcessHeap(), 0, pTemp);
-        }
+	if (Globals.hEdit == NULL)
+	{
+		if (pTemp)
+		{
+			HeapFree(GetProcessHeap(), 0, pTemp);
+		}
 
-        ShowLastError();
-        return;
-    }
+		ShowLastError();
+		return;
+	}
 
-    SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, FALSE);
-    SendMessage(Globals.hEdit, EM_LIMITTEXT, 0, 0);
+	SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, FALSE);
+	SendMessage(Globals.hEdit, EM_LIMITTEXT, 0, 0);
 
-    /* If some text was previously saved, restore it. */
-    if (iSize != 0)
-    {
-        SetWindowText(Globals.hEdit, pTemp);
-        HeapFree(GetProcessHeap(), 0, pTemp);
+	/* If some text was previously saved, restore it. */
+	if (iSize != 0)
+	{
+		SetWindowText(Globals.hEdit, pTemp); // 임시저장한 텍스트 내용을 다시 만든 에딧창에 적용
+		HeapFree(GetProcessHeap(), 0, pTemp);
 
-        if (bModified)
-            SendMessage(Globals.hEdit, EM_SETMODIFY, TRUE, 0);
-    }
+		if (bModified)
+			SendMessage(Globals.hEdit, EM_SETMODIFY, TRUE, 0);
+	}
 
-    /* Sub-class a new window callback for row/column detection. */
-    Globals.EditProc = (WNDPROC)SetWindowLongPtr(Globals.hEdit,
-                                                 GWLP_WNDPROC,
-                                                 (LONG_PTR)EDIT_WndProc);
+	/* Sub-class a new window callback for row/column detection. */
+	Globals.EditProc = (WNDPROC)SetWindowLongPtr(Globals.hEdit,
+		GWLP_WNDPROC,
+		(LONG_PTR)EDIT_WndProc);
 
-    /* Create/update status bar */
-    DoCreateStatusBar();
 
-    /* Finally shows new edit control and set focus into it. */
-    ShowWindow(Globals.hEdit, SW_SHOW);
-    SetFocus(Globals.hEdit);
+	DoCreateStatusBar(); // 상태바 만들기
+
+						 /* Finally shows new edit control and set focus into it. */
+	ShowWindow(Globals.hEdit, SW_SHOW);
+	SetFocus(Globals.hEdit);
 }
 
-VOID DIALOG_EditWrap(VOID)
+VOID DIALOG_EditWrap(VOID) // 자동 줄 바꿈 설정 및 해제
 {
-    Globals.bWrapLongLines = !Globals.bWrapLongLines;
+	Globals.bWrapLongLines = !Globals.bWrapLongLines; // 자동 줄 바꿈 toggle 
 
-    if (Globals.bWrapLongLines)
-    {
-        EnableMenuItem(Globals.hMenu, CMD_GOTO, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
-    }
-    else
-    {
-        EnableMenuItem(Globals.hMenu, CMD_GOTO, MF_BYCOMMAND | MF_ENABLED);
-    }
+	if (Globals.bWrapLongLines)
+	{
+		EnableMenuItem(Globals.hMenu, CMD_GOTO, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED); // "이동" 버튼을 비활성화
+	}
+	else
+	{
+		EnableMenuItem(Globals.hMenu, CMD_GOTO, MF_BYCOMMAND | MF_ENABLED);
+	}
 
-    DoCreateEditWindow();
+	DoCreateEditWindow(); // 에딧 창을 다시 만듬(상태창을 만들고 없애기 위해서 에딧창도 다시 만듬)
 }
 
-VOID DIALOG_SelectFont(VOID)
+VOID DIALOG_SelectFont(VOID) // 폰트 선택하기
 {
-    CHOOSEFONT cf;
-    LOGFONT lf = Globals.lfFont;
+	CHOOSEFONT cf;
+	LOGFONT lf = Globals.lfFont;
 
-    ZeroMemory( &cf, sizeof(cf) );
-    cf.lStructSize = sizeof(cf);
-    cf.hwndOwner = Globals.hMainWnd;
-    cf.lpLogFont = &lf;
-    cf.Flags = CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT | CF_NOVERTFONTS;
+	ZeroMemory(&cf, sizeof(cf));
+	cf.lStructSize = sizeof(cf);
+	cf.hwndOwner = Globals.hMainWnd;
+	cf.lpLogFont = &lf;
+	cf.Flags = CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT | CF_NOVERTFONTS;
 
-    if (ChooseFont(&cf))
-    {
-        HFONT currfont = Globals.hFont;
+	if (ChooseFont(&cf)) // 폰트 선택 다이얼로그
+	{
+		HFONT currfont = Globals.hFont;
 
-        Globals.hFont = CreateFontIndirect(&lf);
-        Globals.lfFont = lf;
-        SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, (LPARAM)TRUE);
-        if (currfont != NULL)
-            DeleteObject(currfont);
-    }
+		Globals.hFont = CreateFontIndirect(&lf);
+		Globals.lfFont = lf;
+		SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, (LPARAM)TRUE); // 폰트 설정
+		if (currfont != NULL)
+			DeleteObject(currfont);
+	}
 }
 
-typedef HWND (WINAPI *FINDPROC)(LPFINDREPLACE lpfr);
+typedef HWND(WINAPI *FINDPROC)(LPFINDREPLACE lpfr);
 
-static VOID DIALOG_SearchDialog(FINDPROC pfnProc)
+static VOID DIALOG_SearchDialog(FINDPROC pfnProc) // 검색 다이얼로그
 {
-    ZeroMemory(&Globals.find, sizeof(Globals.find));
-    Globals.find.lStructSize = sizeof(Globals.find);
-    Globals.find.hwndOwner = Globals.hMainWnd;
-    Globals.find.hInstance = Globals.hInstance;
-    Globals.find.lpstrFindWhat = Globals.szFindText;
-    Globals.find.wFindWhatLen = ARRAY_SIZE(Globals.szFindText);
-    Globals.find.lpstrReplaceWith = Globals.szReplaceText;
-    Globals.find.wReplaceWithLen = ARRAY_SIZE(Globals.szReplaceText);
-    Globals.find.Flags = FR_DOWN;
+	ZeroMemory(&Globals.find, sizeof(Globals.find));
+	Globals.find.lStructSize = sizeof(Globals.find);
+	Globals.find.hwndOwner = Globals.hMainWnd;
+	Globals.find.hInstance = Globals.hInstance;
+	Globals.find.lpstrFindWhat = Globals.szFindText;
+	Globals.find.wFindWhatLen = ARRAY_SIZE(Globals.szFindText);
+	Globals.find.lpstrReplaceWith = Globals.szReplaceText;
+	Globals.find.wReplaceWithLen = ARRAY_SIZE(Globals.szReplaceText);
+	Globals.find.Flags = FR_DOWN;
 
-    /* We only need to create the modal FindReplace dialog which will */
-    /* notify us of incoming events using hMainWnd Window Messages    */
+	/* We only need to create the modal FindReplace dialog which will */
+	/* notify us of incoming events using hMainWnd Window Messages    */
 
-    Globals.hFindReplaceDlg = pfnProc(&Globals.find);
-    assert(Globals.hFindReplaceDlg != 0);
+	Globals.hFindReplaceDlg = pfnProc(&Globals.find);
+	assert(Globals.hFindReplaceDlg != 0);
 }
 
-VOID DIALOG_Search(VOID)
+VOID DIALOG_Search(VOID) // 검색
 {
-    DIALOG_SearchDialog(FindText);
+	DIALOG_SearchDialog(FindText);
 }
 
-VOID DIALOG_SearchNext(VOID)
+VOID DIALOG_SearchNext(VOID) // 다음 찾기
 {
-    if (Globals.find.lpstrFindWhat != NULL)
-        NOTEPAD_FindNext(&Globals.find, FALSE, TRUE);
-    else
-        DIALOG_Search();
+	if (Globals.find.lpstrFindWhat != NULL)
+		NOTEPAD_FindNext(&Globals.find, FALSE, TRUE);
+	else
+		DIALOG_Search();
 }
 
-VOID DIALOG_Replace(VOID)
+VOID DIALOG_Replace(VOID) // 바꾸기
 {
-    DIALOG_SearchDialog(ReplaceText);
+	DIALOG_SearchDialog(ReplaceText);
 }
 
 static INT_PTR
 CALLBACK
-DIALOG_GoTo_DialogProc(HWND hwndDialog, UINT uMsg, WPARAM wParam, LPARAM lParam)
+DIALOG_GoTo_DialogProc(HWND hwndDialog, UINT uMsg, WPARAM wParam, LPARAM lParam) // "이동" 다이얼로그 처리(콜백함수)
 {
-    BOOL bResult = FALSE;
-    HWND hTextBox;
-    TCHAR szText[32];
+	BOOL bResult = FALSE;
+	HWND hTextBox;
+	TCHAR szText[32];
 
-    switch(uMsg) {
-    case WM_INITDIALOG:
-        hTextBox = GetDlgItem(hwndDialog, ID_LINENUMBER);
-        _sntprintf(szText, ARRAY_SIZE(szText), _T("%ld"), lParam);
-        SetWindowText(hTextBox, szText);
-        break;
-    case WM_COMMAND:
-        if (HIWORD(wParam) == BN_CLICKED)
-        {
-            if (LOWORD(wParam) == IDOK)
-            {
-                hTextBox = GetDlgItem(hwndDialog, ID_LINENUMBER);
-                GetWindowText(hTextBox, szText, ARRAY_SIZE(szText));
-                EndDialog(hwndDialog, _ttoi(szText));
-                bResult = TRUE;
-            }
-            else if (LOWORD(wParam) == IDCANCEL)
-            {
-                EndDialog(hwndDialog, 0);
-                bResult = TRUE;
-            }
-        }
-        break;
-    }
+	switch (uMsg) {
+	case WM_INITDIALOG:
+		hTextBox = GetDlgItem(hwndDialog, ID_LINENUMBER);
+		_sntprintf(szText, ARRAY_SIZE(szText), _T("%ld"), lParam);
+		SetWindowText(hTextBox, szText);
+		break;
+	case WM_COMMAND:
+		if (HIWORD(wParam) == BN_CLICKED) // 마우스 버튼 클릭 시
+		{
+			if (LOWORD(wParam) == IDOK) // OK 버튼 누를 때
+			{
+				hTextBox = GetDlgItem(hwndDialog, ID_LINENUMBER); // 이동할 라인 입력창에 대한 핸들을 받음
+				GetWindowText(hTextBox, szText, ARRAY_SIZE(szText));
+				EndDialog(hwndDialog, _ttoi(szText)); // 다이얼로그 종료 (szText값을 정수로 변환)
+				bResult = TRUE;
+			}
+			else if (LOWORD(wParam) == IDCANCEL) // 취소 버튼 누를 때
+			{
+				EndDialog(hwndDialog, 0);
+				bResult = TRUE;
+			}
+		}
+		break;
+	}
 
-    return bResult;
+	return bResult;
 }
 
-VOID DIALOG_GoTo(VOID)
+VOID DIALOG_GoTo(VOID) // "이동" 다이얼로그
 {
-    INT_PTR nLine;
-    LPTSTR pszText;
-    int nLength, i;
-    DWORD dwStart, dwEnd;
+	INT_PTR nLine;
+	LPTSTR pszText;
+	int nLength, i;
+	DWORD dwStart, dwEnd;
 
-    nLength = GetWindowTextLength(Globals.hEdit);
-    pszText = (LPTSTR) HeapAlloc(GetProcessHeap(), 0, (nLength + 1) * sizeof(*pszText));
-    if (!pszText)
-        return;
+	nLength = GetWindowTextLength(Globals.hEdit);
+	pszText = (LPTSTR)HeapAlloc(GetProcessHeap(), 0, (nLength + 1) * sizeof(*pszText));
+	if (!pszText)
+		return;
 
-    /* Retrieve current text */
-    GetWindowText(Globals.hEdit, pszText, nLength + 1);
-    SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM) &dwStart, (LPARAM) &dwEnd);
+	/* Retrieve current text */
+	GetWindowText(Globals.hEdit, pszText, nLength + 1);
+	SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwEnd);
 
-    nLine = 1;
-    for (i = 0; (i < (int) dwStart) && pszText[i]; i++)
-    {
-        if (pszText[i] == '\n')
-            nLine++;
-    }
+	nLine = 1;
+	for (i = 0; (i < (int)dwStart) && pszText[i]; i++)
+	{
+		if (pszText[i] == '\n')
+			nLine++;
+	}
 
-    nLine = DialogBoxParam(Globals.hInstance,
-                           MAKEINTRESOURCE(DIALOG_GOTO),
-                           Globals.hMainWnd,
-                           DIALOG_GoTo_DialogProc,
-                           nLine);
+	nLine = DialogBoxParam(Globals.hInstance,
+		MAKEINTRESOURCE(DIALOG_GOTO),
+		Globals.hMainWnd,
+		DIALOG_GoTo_DialogProc, // 이동 다이얼로그
+		nLine);
 
-    if (nLine >= 1)
-    {
-        for (i = 0; pszText[i] && (nLine > 1) && (i < nLength - 1); i++)
-        {
-            if (pszText[i] == '\n')
-                nLine--;
-        }
-        SendMessage(Globals.hEdit, EM_SETSEL, i, i);
-        SendMessage(Globals.hEdit, EM_SCROLLCARET, 0, 0);
-    }
-    HeapFree(GetProcessHeap(), 0, pszText);
+	if (nLine >= 1)
+	{
+		for (i = 0; pszText[i] && (nLine > 1) && (i < nLength - 1); i++)
+		{
+			if (pszText[i] == '\n')
+				nLine--;
+		}
+		SendMessage(Globals.hEdit, EM_SETSEL, i, i);
+		SendMessage(Globals.hEdit, EM_SCROLLCARET, 0, 0); // 스크롤을 위치에 맞게 이동
+	}
+	HeapFree(GetProcessHeap(), 0, pszText);
 }
 
-VOID DIALOG_StatusBarUpdateCaretPos(VOID)
+VOID DIALOG_StatusBarUpdateCaretPos(VOID) // 상태바 위치 최신화
 {
-    int line, col;
-    TCHAR buff[MAX_PATH];
-    DWORD dwStart, dwSize;
+	int line, col;
+	TCHAR buff[MAX_PATH];
+	DWORD dwStart, dwSize;
 
-    SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwSize);
-    line = SendMessage(Globals.hEdit, EM_LINEFROMCHAR, (WPARAM)dwStart, 0);
-    col = dwStart - SendMessage(Globals.hEdit, EM_LINEINDEX, (WPARAM)line, 0);
+	SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwSize);
+	line = SendMessage(Globals.hEdit, EM_LINEFROMCHAR, (WPARAM)dwStart, 0);
+	col = dwStart - SendMessage(Globals.hEdit, EM_LINEINDEX, (WPARAM)line, 0); // 현재 칼럼 수
 
-    _stprintf(buff, Globals.szStatusBarLineCol, line + 1, col + 1);
-    SendMessage(Globals.hStatusBar, SB_SETTEXT, SB_SIMPLEID, (LPARAM)buff);
+	_stprintf(buff, Globals.szStatusBarLineCol, line + 1, col + 1);
+	SendMessage(Globals.hStatusBar, SB_SETTEXT, SB_SIMPLEID, (LPARAM)buff);
 }
 
-VOID DIALOG_ViewStatusBar(VOID)
+VOID DIALOG_ViewStatusBar(VOID) // 상태바 보기 및 숨기기
 {
-    Globals.bShowStatusBar = !Globals.bShowStatusBar;
+	Globals.bShowStatusBar = !Globals.bShowStatusBar;
 
-    DoCreateStatusBar();
+	DoCreateStatusBar();
 }
 
-VOID DIALOG_HelpContents(VOID)
+VOID DIALOG_HelpContents(VOID) // 도움말
 {
-    WinHelp(Globals.hMainWnd, helpfile, HELP_INDEX, 0);
+	WinHelp(Globals.hMainWnd, helpfile, HELP_INDEX, 0);
 }
 
-VOID DIALOG_HelpAboutNotepad(VOID)
+VOID DIALOG_HelpAboutNotepad(VOID) // 메모장 정보
 {
-    TCHAR szNotepad[MAX_STRING_LEN];
-    HICON notepadIcon = LoadIcon(Globals.hInstance, MAKEINTRESOURCE(IDI_NPICON));
+	TCHAR szNotepad[MAX_STRING_LEN];
+	HICON notepadIcon = LoadIcon(Globals.hInstance, MAKEINTRESOURCE(IDI_NPICON));
 
-    LoadString(Globals.hInstance, STRING_NOTEPAD, szNotepad, ARRAY_SIZE(szNotepad));
-    ShellAbout(Globals.hMainWnd, szNotepad, 0, notepadIcon);
-    DeleteObject(notepadIcon);
+	LoadString(Globals.hInstance, STRING_NOTEPAD, szNotepad, ARRAY_SIZE(szNotepad));
+	ShellAbout(Globals.hMainWnd, szNotepad, 0, notepadIcon);
+	DeleteObject(notepadIcon);
 }
 
 INT_PTR
 CALLBACK
-AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) // 개발자 정보(작동 안됨)
 {
-    HWND hLicenseEditWnd;
-    TCHAR *strLicense;
+	HWND hLicenseEditWnd;
+	TCHAR *strLicense;
 
-    switch (message)
-    {
-    case WM_INITDIALOG:
+	switch (message)
+	{
+	case WM_INITDIALOG:
 
-        hLicenseEditWnd = GetDlgItem(hDlg, IDC_LICENSE);
+		hLicenseEditWnd = GetDlgItem(hDlg, IDC_LICENSE);
 
-        /* 0x1000 should be enough */
-        strLicense = (TCHAR *)_alloca(0x1000);
-        LoadString(GetModuleHandle(NULL), STRING_LICENSE, strLicense, 0x1000);
+		/* 0x1000 should be enough */
+		strLicense = (TCHAR *)_alloca(0x1000);
+		LoadString(GetModuleHandle(NULL), STRING_LICENSE, strLicense, 0x1000);
 
-        SetWindowText(hLicenseEditWnd, strLicense);
+		SetWindowText(hLicenseEditWnd, strLicense); // 라이선스 정보 할당
 
-        return TRUE;
+		return TRUE;
 
-    case WM_COMMAND:
+	case WM_COMMAND:
 
-        if ((LOWORD(wParam) == IDOK) || (LOWORD(wParam) == IDCANCEL))
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return TRUE;
-        }
+		if ((LOWORD(wParam) == IDOK) || (LOWORD(wParam) == IDCANCEL))
+		{
+			EndDialog(hDlg, LOWORD(wParam)); // 다이얼로그 종료
+			return TRUE;
+		}
 
-        break;
-    }
+		break;
+	}
 
-    return 0;
+	return 0;
 }
 
 /***********************************************************************
- *
- *           DIALOG_FilePageSetup
- */
-VOID DIALOG_FilePageSetup(void)
+*
+*           DIALOG_FilePageSetup
+*/
+VOID DIALOG_FilePageSetup(void) // 페이지 설정
 {
-    PAGESETUPDLG page;
+	PAGESETUPDLG page; // 페이지 정보를 담은 구조체
 
-    ZeroMemory(&page, sizeof(page));
-    page.lStructSize = sizeof(page);
-    page.hwndOwner = Globals.hMainWnd;
-    page.Flags = PSD_ENABLEPAGESETUPTEMPLATE | PSD_ENABLEPAGESETUPHOOK | PSD_MARGINS;
-    page.hInstance = Globals.hInstance;
-    page.rtMargin = Globals.lMargins;
-    page.hDevMode = Globals.hDevMode;
-    page.hDevNames = Globals.hDevNames;
-    page.lpPageSetupTemplateName = MAKEINTRESOURCE(DIALOG_PAGESETUP);
-    page.lpfnPageSetupHook = DIALOG_PAGESETUP_Hook;
+	ZeroMemory(&page, sizeof(page));
+	page.lStructSize = sizeof(page);
+	page.hwndOwner = Globals.hMainWnd;
+	page.Flags = PSD_ENABLEPAGESETUPTEMPLATE | PSD_ENABLEPAGESETUPHOOK | PSD_MARGINS;
+	page.hInstance = Globals.hInstance;
+	page.rtMargin = Globals.lMargins;
+	page.hDevMode = Globals.hDevMode;
+	page.hDevNames = Globals.hDevNames;
+	page.lpPageSetupTemplateName = MAKEINTRESOURCE(DIALOG_PAGESETUP);
+	page.lpfnPageSetupHook = DIALOG_PAGESETUP_Hook;
 
-    PageSetupDlg(&page);
+	PageSetupDlg(&page);
 
-    Globals.hDevMode = page.hDevMode;
-    Globals.hDevNames = page.hDevNames;
-    Globals.lMargins = page.rtMargin;
+	Globals.hDevMode = page.hDevMode;
+	Globals.hDevNames = page.hDevNames;
+	Globals.lMargins = page.rtMargin; // 여백 정보 할당
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- *
- *           DIALOG_PAGESETUP_Hook
- */
+*
+*           DIALOG_PAGESETUP_Hook
+*/
 
-static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
+static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) // 페이지 설정 다이얼로그 (콜백함수)
 {
-    switch (msg)
-    {
-    case WM_COMMAND:
-        if (HIWORD(wParam) == BN_CLICKED)
-        {
-            switch (LOWORD(wParam))
-            {
-            case IDOK:
-                /* save user input and close dialog */
-                GetDlgItemText(hDlg, 0x141, Globals.szHeader, ARRAY_SIZE(Globals.szHeader));
-                GetDlgItemText(hDlg, 0x143, Globals.szFooter, ARRAY_SIZE(Globals.szFooter));
-                return FALSE;
+	switch (msg)
+	{
+	case WM_COMMAND:
+		if (HIWORD(wParam) == BN_CLICKED) // 마우스 버튼이 클릭되면
+		{
+			switch (LOWORD(wParam))
+			{
+			case IDOK:
+				/* save user input and close dialog */
+				GetDlgItemText(hDlg, 0x141, Globals.szHeader, ARRAY_SIZE(Globals.szHeader)); // 푸터와, 헤더값 설정
+				GetDlgItemText(hDlg, 0x143, Globals.szFooter, ARRAY_SIZE(Globals.szFooter));
+				return FALSE;
 
-            case IDCANCEL:
-                /* discard user input and close dialog */
-                return FALSE;
+			case IDCANCEL:
+				/* discard user input and close dialog */
+				return FALSE;
 
-            case IDHELP:
-                {
-                    /* FIXME: Bring this to work */
-                    static const TCHAR sorry[] = _T("Sorry, no help available");
-                    static const TCHAR help[] = _T("Help");
-                    MessageBox(Globals.hMainWnd, sorry, help, MB_ICONEXCLAMATION);
-                    return TRUE;
-                }
+			case IDHELP:
+			{
+				/* FIXME: Bring this to work */
+				static const TCHAR sorry[] = _T("Sorry, no help available");
+				static const TCHAR help[] = _T("Help");
+				MessageBox(Globals.hMainWnd, sorry, help, MB_ICONEXCLAMATION);
+				return TRUE;
+			}
 
-            default:
-                break;
-            }
-        }
-        break;
+			default:
+				break;
+			}
+		}
+		break;
 
-    case WM_INITDIALOG:
-        /* fetch last user input prior to display dialog */
-        SetDlgItemText(hDlg, 0x141, Globals.szHeader);
-        SetDlgItemText(hDlg, 0x143, Globals.szFooter);
-        break;
-    }
+	case WM_INITDIALOG:
+		/* fetch last user input prior to display dialog */
+		SetDlgItemText(hDlg, 0x141, Globals.szHeader); // 푸터와 헤더값 받아오기
+		SetDlgItemText(hDlg, 0x143, Globals.szFooter);
+		break;
+	}
 
-    return FALSE;
+	return FALSE;
 }
