@@ -40,7 +40,6 @@ static LONG HeightFromPointSize(DWORD dwPointSize)
 	 * DC는 출력에 필요한 정보를 가지는 데이터 구조체. 좌표,색 ,굵기등 출력에 필요한 모든 정보를 담고있다
 	 * HDC는 DC를 다루는 handle로, DC의 정보를 저장하는 데이터 구조체의 위치를 가리킴. 포인터가 아닌 실제 객체의 메모리 주소를 가리킴
 	 * lHeight 값이 양수면 셀의 높이, 음수면 글자의 높이를 절대값으로 설정한다.
-
 	*/
 	//32bit인 첫번째와 두번째를 곱한 64bit의 값을 32bit인 3번째 값으로 나눔. 정수로 반올림됨
     lHeight = -MulDiv(dwPointSize, GetDeviceCaps(hDC, LOGPIXELSY), 720);
@@ -89,8 +88,8 @@ QueryGeneric(HKEY hKey, LPCTSTR pszValueNameT, DWORD dwExpectedType,
 	//함수 사용시 예측한 타입이 아니면 false
 	if (dwType != dwExpectedType)
 		return FALSE;
-	//pvResult 메모리 공간에 pTemp의 내용을 cbData바이트만큼 복사한다
 
+	//pvResult 메모리 공간에 pTemp의 내용을 cbData바이트만큼 복사한다
     memcpy(pvResult, pTemp, cbData);
     return TRUE;
 }
@@ -204,7 +203,7 @@ void NOTEPAD_LoadSettingsFromRegistry(void)
         else
             Globals.lfFont.lfHeight = HeightFromPointSize(100);
 
-        RegCloseKey(hKey);
+        RegCloseKey(hKey); //사용한 레지스터키를 닫음
     }
     else
     {
