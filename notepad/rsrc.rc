@@ -36,7 +36,8 @@ IDI_NPICON ICON "res/notepad.ico"
 //zy
 //#include <reactos/manifest_exe.rc>
 
-#define LANGUAGE_ZH_CN 1
+//#define LANGUAGE_ZH_CN
+#define LANGUAGE_KO_KR
 
 /* UTF-8 */
 #pragma code_page(65001)

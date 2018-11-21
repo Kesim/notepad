@@ -101,19 +101,19 @@ BEGIN
     PUSHBUTTON "도움말", IDHELP, 8, 170, 50, 14
     DEFPUSHBUTTON "확인", IDOK, 198, 170, 50, 14, BS_PUSHBUTTON
     PUSHBUTTON "취소", IDCANCEL, 254, 170, 50, 14
-    PUSHBUTTON "프린터(&P)...", psh3, 142, 170, 50, 14
+    PUSHBUTTON "프린터(&P)...", psh1, 310, 170, 50, 14
 END
 
 /* Dialog 'Encoding' */
 DIALOG_ENCODING DIALOGEX 0, 0, 256, 44
 STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
-CAPTION "Encoding"
+CAPTION "인코딩"
 BEGIN
     COMBOBOX ID_ENCODING, 54, 0, 156, 80, CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
-    LTEXT "Encoding:", 0x155, 5, 2, 41, 12
+    LTEXT "인코딩:", 0x155, 5, 2, 41, 12
     COMBOBOX ID_EOLN, 54, 18, 156, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT "Endlines:", 0x156, 5, 20, 41, 12
+    LTEXT "줄바꿈 문자:", 0x156, 5, 20, 41, 12
 END
 
 /* Dialog 'Go To' */
@@ -153,13 +153,13 @@ BEGIN
     STRING_PAGESETUP_RIGHTVALUE "20 mm" /* FIXME */
     STRING_PAGESETUP_TOPVALUE "25 mm" /* FIXME */
     STRING_PAGESETUP_BOTTOMVALUE "25 mm" /* FIXME */
-    STRING_NOTEPAD "Notepad"
-    STRING_ERROR "ERROR"
-    STRING_WARNING "WARNING"
-    STRING_INFO "Information"
-    STRING_UNTITLED "Untitled"
-    STRING_ALL_FILES "All files (*.*)"
-    STRING_TEXT_FILES_TXT "Text files (*.txt)"
+    STRING_NOTEPAD "메모장"
+    STRING_ERROR "에러"
+    STRING_WARNING "경고"
+    STRING_INFO "정보"
+    STRING_UNTITLED "제목 없음"
+    STRING_ALL_FILES "모든 파일 (*.*)"
+    STRING_TEXT_FILES_TXT "텍스트 문서 (*.txt)"
     STRING_TOOLARGE "File '%s' is too large for notepad.\n \
 Please use a different editor."
     STRING_NOTEXT "You didn't enter any text. \
