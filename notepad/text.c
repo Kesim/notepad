@@ -22,6 +22,10 @@
 
 #include "notepad.h"
 
+static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, DWORD dwAppendLen);
+static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile);
+static VOID freeBuffer(LPBYTE pAllocBuffer);
+
 static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, DWORD dwAppendLen)
 {	//기존에 새로운 내용 추가
     LPWSTR pszNewText;
@@ -239,7 +243,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
     BYTE buffer[1024];
     UINT iCodePage = 0;
     DWORD dwDummy, i;
-    BOOL bSuccess = FALSE;
+    //BOOL bSuccess = FALSE;
     int iBufferSize, iRequiredBytes;
     BYTE b; //UNICODE_BE에서 바이트를 교환할 때 사용할 공간
 	//todo : BYTE b; 의 용도가 temp이므로 의미있는 변수명으로 바꿀 수 있음
@@ -281,7 +285,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
                 iRequiredBytes = WideCharToMultiByte(iCodePage, 0, &pszText[dwPos], dwTextLen - dwPos, NULL, 0, NULL, NULL);
                 if (iRequiredBytes <= 0)
                 {
-                    goto done;
+					return FALSE;
                 }
                 else if (iRequiredBytes < sizeof(buffer))
                 {
@@ -293,39 +297,56 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
                     pAllocBuffer = (LPBYTE) HeapAlloc(GetProcessHeap(), 0, iRequiredBytes);
                     if (!pAllocBuffer)
                         return FALSE;
+
                     pBytes = pAllocBuffer;
                     iBufferSize = iRequiredBytes;
                 }
 
 				//현재 위치에서부터 끝까지의 유니코드 문자열 내용을 pBytes에 iBufferSize의 크기만큼 멀티 바이트로 변환. 반환은 바이트의 갯수
                 dwByteCount = WideCharToMultiByte(iCodePage, 0, &pszText[dwPos], dwTextLen - dwPos, (LPSTR) pBytes, iBufferSize, NULL, NULL);
-                if (!dwByteCount)
-                    goto done;
+				if (!dwByteCount)
+				{
+					freeBuffer(pAllocBuffer);
+
+					return FALSE;
+				}
 
                 dwPos = dwTextLen; //while문 종료
                 break;
 
             default: //위의 유니코드와 맞지 않으면 종료
-                goto done;
+				freeBuffer(pAllocBuffer);
+
+				return FALSE;
         }
 
 		//파일에 pBytes내용을 dwByteCount수만큼 씀. dwDummy는 파일에 쓰여진 바이트 갯수
-        if (!WriteFile(hFile, pBytes, dwByteCount, &dwDummy, NULL))
-            goto done;
+		if (!WriteFile(hFile, pBytes, dwByteCount, &dwDummy, NULL))
+		{
+			freeBuffer(pAllocBuffer);
+
+			return FALSE;
+		}
 
         /* free the buffer, if we have allocated one */
+		/*
         if (pAllocBuffer) //버퍼를 할당하여 사용하였으면 메모리 해제
         {
             HeapFree(GetProcessHeap(), 0, pAllocBuffer);
             pAllocBuffer = NULL;
         }
+		*/
+		freeBuffer(pAllocBuffer);
     }
-    bSuccess = TRUE; //파일에 쓰기 성공
+    //bSuccess = TRUE; //파일에 쓰기 성공
 
+/*
 done: //위의 while문에서 에러 발생 시 올 수 있으므로 메모리를 확인하여 해제한다
     if (pAllocBuffer)
         HeapFree(GetProcessHeap(), 0, pAllocBuffer);
-    return bSuccess;
+		*/
+
+    return TRUE;
 }
 
 BOOL WriteText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile, int iEoln)
@@ -398,4 +419,12 @@ BOOL WriteText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile, int 
     while (dwPos < dwTextLen);
 
     return TRUE;
+}
+
+static VOID freeBuffer(LPBYTE pAllocBuffer)
+{
+	if(pAllocBuffer)
+		HeapFree(GetProcessHeap(), 0, pAllocBuffer);
+
+	pAllocBuffer = NULL;
 }
