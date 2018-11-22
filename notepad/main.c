@@ -591,21 +591,18 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
     HMONITOR monitor;
     MONITORINFO info;
     INT x, y;
-	int id;
-	int lang;
-	int hebrew;
 
     static const TCHAR className[] = _T("Notepad"); //클래스 이름
     static const TCHAR winName[] = _T("Notepad"); //윈도우 창 이름
 
     switch (GetUserDefaultUILanguage()) //유저 기본 UI 언어를 가져옴
     {
-    case MAKELANGID(LANG_HEBREW, SUBLANG_DEFAULT):
-        SetProcessDefaultLayout(LAYOUT_RTL);
-        break;
+		case MAKELANGID(LANG_HEBREW, SUBLANG_DEFAULT):
+			SetProcessDefaultLayout(LAYOUT_RTL);
+			break;
 
-    default:
-        break;
+		default:
+			break;
     }
 
     UNREFERENCED_PARAMETER(prev);
