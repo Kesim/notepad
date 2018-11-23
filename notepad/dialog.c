@@ -30,34 +30,34 @@
 -도움말 -페이지 설정
 */
 #include "notepad.h"
-
 #include <assert.h>
 #include <commctrl.h>
 #include <strsafe.h>
 
 //zy
-#pragma comment(lib,"comctl32.lib") 
+#pragma comment(lib,"comctl32.lib") // Can call function in library
 
 LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam); // main.c 에 구현되어 있음. DoCreateEditWindow 내부에서 사용.
 
-static const TCHAR helpfile[] = _T("notepad.hlp"); // 도움말 파일
-static const TCHAR empty_str[] = _T(""); // 빈 스트링. 에딧 컨트롤의 내용을 비울 때 사용.
-static const TCHAR szDefaultExt[] = _T("txt"); // 기본 확장자
-static const TCHAR txt_files[] = _T("*.txt"); // 모든 텍스트 파일
+static const TCHAR helpfile[] = _T("notepad.hlp"); // 도움말 파일 // help filename
+static const TCHAR empty_str[] = _T(""); // 빈 스트링. 에딧 컨트롤의 내용을 비울 때 사용. // empty string 
+static const TCHAR szDefaultExt[] = _T("txt"); // 기본 확장자 // default extension
+static const TCHAR txt_files[] = _T("*.txt"); // 모든 텍스트 파일 // All text files
 
 static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 
-VOID ShowLastError(VOID) // 가장 최근의 에러를 보여줌
+// 가장 최근의 에러를 보여줌 // show recent error
+VOID ShowLastError(VOID) 
 {
-	DWORD error = GetLastError(); // 마지막 에러를 할당
+	DWORD error = GetLastError(); // 마지막 에러를 할당 // return recent error
 	if (error != NO_ERROR)
 	{
 		LPTSTR lpMsgBuf = NULL;
 		TCHAR szTitle[MAX_STRING_LEN];
 
-		LoadString(Globals.hInstance, STRING_ERROR, szTitle, ARRAY_SIZE(szTitle)); // 에러 값에 해당하는 리소스를 로드
+		LoadString(Globals.hInstance, STRING_ERROR, szTitle, ARRAY_SIZE(szTitle)); // 에러 값에 해당하는 리소스를 로드 // load resource that maching with error
 
-		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, //error에 해당하는 문구가 lpMsgBuf에 들어감
+		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, //error에 해당하는 문구가 lpMsgBuf에 들어감 // transfer data from error to lpMsgBuf
 			NULL,
 			error,
 			0,
@@ -65,101 +65,121 @@ VOID ShowLastError(VOID) // 가장 최근의 에러를 보여줌
 			0,
 			NULL);
 
-		MessageBox(NULL, lpMsgBuf, szTitle, MB_OK | MB_ICONERROR); // 오류 내용과 타이틀 제목이 다이얼로그로 출력
-		LocalFree(lpMsgBuf);
+		MessageBox(NULL, lpMsgBuf, szTitle, MB_OK | MB_ICONERROR); // 오류 내용과 타이틀 제목이 다이얼로그로 출력 // print Dialog about error 
+		LocalFree(lpMsgBuf); // 로컬메시지 객체를 해제하고 핸들 무효화 // invalidate handle for localmsg object
 	}
 }
 
 /**
 * Sets the caption of the main window according to Globals.szFileTitle:
+ 파일명에 따른 메인 창의 캡션을 설정
 *    (untitled) - Notepad      if no file is open
 *    [filename] - Notepad      if a file is given
 */
-void UpdateWindowCaption(BOOL clearModifyAlert) // 메모장 윈도우의 타이틀을 최신화
+void UpdateWindowCaption(BOOL clearModifyAlert) // 메모장 윈도우의 타이틀을 최신화 // update title
 {
-	TCHAR szCaption[MAX_STRING_LEN];
-	TCHAR szNotepad[MAX_STRING_LEN];
+	TCHAR szCaption[MAX_STRING_LEN]; 
+	TCHAR szNotepad[MAX_STRING_LEN]; // 앱 이름
 	TCHAR szFilename[MAX_STRING_LEN];
 
-	/* Load the name of the application */
-	LoadString(Globals.hInstance, STRING_NOTEPAD, szNotepad, ARRAY_SIZE(szNotepad));
+	LoadString(Globals.hInstance, STRING_NOTEPAD, szNotepad, ARRAY_SIZE(szNotepad)); //앱 이름 로드 // Load the name of the application
 
-
-	if (Globals.szFileTitle[0] != 0) // 기존에 파일이 있으면 -> szFilename에 기존 파일 이름 할당
+	if (Globals.szFileTitle[0] != 0) // 기존에 파일이 있으면 -> szFilename에 기존 파일 이름 할당 // allocate existing filename if there is 
 		StringCchCopy(szFilename, ARRAY_SIZE(szFilename), Globals.szFileTitle);
-	else // 새 파일이면 untitled에 해당하는 리소스 문자열 불러옴
+	else // 새 파일이면 untitled에 해당하는 리소스 문자열 불러옴 // unless, allocate "untitled"
 		LoadString(Globals.hInstance, STRING_UNTITLED, szFilename, ARRAY_SIZE(szFilename));
 
 	/* When a file is being opened or created, there is no need to have the edited flag shown
-	when the new or opened file has not been edited yet */
+	when the new or opened file has not been edited yet 
+	파일이 열려 있거나 만들어질 때, 아직 편집 안되었으면, 편집되었다는 플래그가 보일 필요 없음
+	*/
 	if (clearModifyAlert) // TRUE 이면  "파일이름-메모장"의 형식으로 출력
 		StringCbPrintf(szCaption, ARRAY_SIZE(szCaption), _T("%s - %s"), szFilename, szNotepad);
 	else
-	{
-		BOOL isModified = (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0) ? TRUE : FALSE); // 편집창 내용의 변경 여부
+	{	// 편집창 내용의 변경 여부 // whether letters of edit window changed
+		BOOL isModified = (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0) ? TRUE : FALSE); 
 
-																						   /* Update the caption based upon if the user has modified the contents of the file or not */
-		StringCbPrintf(szCaption, ARRAY_SIZE(szCaption), _T("%s%s - %s"), // 변경된 파일이면 *가 붙여서 출력
+		// Update the caption based upon if the user has modified the contents of the file or not 
+		StringCbPrintf(szCaption, ARRAY_SIZE(szCaption), _T("%s%s - %s"), // 변경된 파일이면 *가 붙여서 출력, 아니면 파일이름만
 			(isModified ? _T("*") : _T("")), szFilename, szNotepad);
 	}
 
 	SetWindowText(Globals.hMainWnd, szCaption); // 타이틀 제목을 할당
 }
 
-int DIALOG_StringMsgBox(HWND hParent, int formatId, LPCTSTR szString, DWORD dwFlags) // 특정 id의 메시지를 다이얼로그로 띄워주는 역할
+/* 특정 id의 메시지를 다이얼로그로 띄워주는 역할 : print dialog contains specifed id's msg
+	formatId : 특정 메시지에 매칭되는 id  : id that matched specified msg
+*/
+int DIALOG_StringMsgBox(HWND hParent, int formatId, LPCTSTR szString, DWORD dwFlags) 
 {
 	TCHAR szMessage[MAX_STRING_LEN];
 	TCHAR szResource[MAX_STRING_LEN];
 
-	/* Load and format szMessage */
-	LoadString(Globals.hInstance, formatId, szResource, ARRAY_SIZE(szResource)); // formatId에 해당하는 메시지를 리소스로 부터 로드
+	// formatId에 해당하는 메시지를 리소스로 부터 로드 // Load and format szMessage 
+	LoadString(Globals.hInstance, formatId, szResource, ARRAY_SIZE(szResource)); 
 	_sntprintf(szMessage, ARRAY_SIZE(szMessage), szResource, szString);
 
-	/* Load szCaption */
-	if ((dwFlags & MB_ICONMASK) == MB_ICONEXCLAMATION) // 느낌표가 있는 다이얼로그는 에러 표시시
+	if ((dwFlags & MB_ICONMASK) == MB_ICONEXCLAMATION) // 느낌표(exclamation)가 있는 다이얼로그는 에러 표시시 // Load szCaption
 		LoadString(Globals.hInstance, STRING_ERROR, szResource, ARRAY_SIZE(szResource));
 	else
 		LoadString(Globals.hInstance, STRING_NOTEPAD, szResource, ARRAY_SIZE(szResource));
 
-	/* Display Modal Dialog */
+	//todo
+	// Display Modal Dialog  
 	// if (hParent == NULL)
 	// hParent = Globals.hMainWnd;
 	return MessageBox(hParent, szMessage, szResource, dwFlags); // 다이얼로그 표시
 }
 
-static void AlertFileNotFound(LPCTSTR szFileName) // 파일 못 찾았을 때
+// 파일 못 찾았을 때
+static void AlertFileNotFound(LPCTSTR szFileName) 
 {
 	DIALOG_StringMsgBox(Globals.hMainWnd, STRING_NOTFOUND, szFileName, MB_ICONEXCLAMATION | MB_OK);
 }
 
-static int AlertFileNotSaved(LPCTSTR szFileName) // 파일 미 저장시 알림
+// 파일 미 저장시 알림
+static int AlertFileNotSaved(LPCTSTR szFileName) 
 {
-	TCHAR szUntitled[MAX_STRING_LEN];
+	TCHAR szDialogTitle[MAX_STRING_LEN]; 
+	LPCTSTR filename;
+	int dialogResult;
 
-	LoadString(Globals.hInstance, STRING_UNTITLED, szUntitled, ARRAY_SIZE(szUntitled));
+	if (szFileName[0] == '\0') {
+		filename = szFileName;
+	}
+	else {
+		filename = szDialogTitle;
+	}
+	LoadString(Globals.hInstance, STRING_UNTITLED, szDialogTitle, ARRAY_SIZE(szDialogTitle));
 
-	return DIALOG_StringMsgBox(Globals.hMainWnd, STRING_NOTSAVED,
-		szFileName[0] ? szFileName : szUntitled,
-		MB_ICONQUESTION | MB_YESNOCANCEL);
+	dialogResult = DIALOG_StringMsgBox(Globals.hMainWnd, STRING_NOTSAVED, filename, MB_ICONQUESTION | MB_YESNOCANCEL);
+	return dialogResult;
 }
 
-static void AlertPrintError(void) // 프린트 에러 시
+// 프린트 에러 시
+static void AlertPrintError(void) 
 {
 	TCHAR szUntitled[MAX_STRING_LEN];
+	TCHAR filename;
 
+	if (Globals.szFileName[0] == '\0') {
+		filename = Globals.szFileName;
+	}
+	else {
+		filename = szUntitled;
+	}
 	LoadString(Globals.hInstance, STRING_UNTITLED, szUntitled, ARRAY_SIZE(szUntitled));
 
-	DIALOG_StringMsgBox(Globals.hMainWnd, STRING_PRINTERROR,
-		Globals.szFileName[0] ? Globals.szFileName : szUntitled,
-		MB_ICONEXCLAMATION | MB_OK);
+	DIALOG_StringMsgBox(Globals.hMainWnd, STRING_PRINTERROR, filename, MB_ICONEXCLAMATION | MB_OK);
 }
 
 /**
 * Returns:
 *   TRUE  - if file exists
 *   FALSE - if file does not exist
+  파일이 존재한다면
 */
-BOOL FileExists(LPCTSTR szFilename) // 파일 존재 시
+BOOL FileExists(LPCTSTR szFilename)
 {
 	WIN32_FIND_DATA entry;
 	HANDLE hFile;
@@ -170,33 +190,49 @@ BOOL FileExists(LPCTSTR szFilename) // 파일 존재 시
 	return (hFile != INVALID_HANDLE_VALUE); // 할당이 성공하면 TRUE 리턴
 }
 
-BOOL HasFileExtension(LPCTSTR szFilename) // 확장자를 가지고 있는지 (인수: 파일이름)
+// 확장자를 가지고 있는지 (인수: 파일이름)
+BOOL HasFileExtension(LPCTSTR szFilename) 
 {
 	LPCTSTR s;
 
-	s = _tcsrchr(szFilename, _T('\\')); // 경로에서 파일이름만 추출
+	// 경로에서 파일이름만 추출(뒤에서부터 해당 문자 만날때까지 parsing  // only parse filename
+	s = _tcsrchr(szFilename, _T('\\')); 
 	if (s)
 		szFilename = s;
-	return _tcsrchr(szFilename, _T('.')) != NULL; // 파일이름에서 확장자만 추출
+
+	// 파일이름에서 확장자만 추출 // only extract extension // todo : 변수만들어서 해결
+	return _tcsrchr(szFilename, _T('.')) != NULL; 
 }
 
-int GetSelectionTextLength(HWND hWnd) // 선택된 윈도우의 글자 길이 리턴 (인수: 윈도우 핸들) (리턴: 글자의 길이)
+/* 선택된 윈도우의 글자 길이 리턴 : letter length of selected window
+(인수 hwnd: 윈도우 핸들) : parameter : hwnd : window handle
+(리턴: 글자의 길이) return : length of letter
+*/
+int GetSelectionTextLength(HWND hWnd) 
 {
 	DWORD dwStart = 0;
 	DWORD dwEnd = 0;
+	DWORD letterLength;
 
 	SendMessage(hWnd, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwEnd);
 
-	return dwEnd - dwStart;
+	letterLength = dwEnd - dwStart;
+	return letterLength;
 }
 
-int GetSelectionText(HWND hWnd, LPTSTR lpString, int nMaxCount) // 선택된 윈도우의 글자 및 길이 반환 (인수:윈도우, 스트링변수) (리턴:글자 수)
+/*선택된 윈도우의 글자 및 길이 반환 
+인수 : parameter
+  hwnd:윈도우 핸들, : window handle
+  LPTSTR: 스트링변수 : string 
+(리턴: 글자 수) return: letter length
+*/
+int GetSelectionText(HWND hWnd, LPTSTR lpString, int nMaxCount) 
 {
 	DWORD dwStart = 0;
 	DWORD dwEnd = 0;
-	DWORD dwSize;
-	HRESULT hResult;
-	LPTSTR lpTemp;
+	DWORD dwSize; // 글자 수
+	HRESULT hResult; // HRESULT 는 정수타입의 에러를 나타내는 코드 // HRESULT represents error type 
+	LPTSTR lpLetterBuf;
 
 	if (!lpString)
 	{
@@ -205,131 +241,142 @@ int GetSelectionText(HWND hWnd, LPTSTR lpString, int nMaxCount) // 선택된 윈도우
 
 	SendMessage(hWnd, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwEnd);
 
-	if (dwStart == dwEnd)
+	if (dwStart == dwEnd) 
 	{
 		return 0;
 	}
 
-	dwSize = GetWindowTextLength(hWnd) + 1;
-	lpTemp = HeapAlloc(GetProcessHeap(), 0, dwSize * sizeof(TCHAR));
-	if (!lpTemp)
+	dwSize = GetWindowTextLength(hWnd) + 1; // 글자 수 할당 // allocate letter length
+	lpLetterBuf = HeapAlloc(GetProcessHeap(), 0, dwSize * sizeof(TCHAR)); // 있는 글자 수 만큼 버퍼 동적할당 // dynamic allocation
+	if (lpLetterBuf == NULL)
 	{
 		return 0;
 	}
 
-	dwSize = GetWindowText(hWnd, lpTemp, dwSize);
+	dwSize = GetWindowText(hWnd, lpLetterBuf, dwSize); // lpLetterBuf 에 글자가 들어감 // letter allocated to lpLetterBuf
 
-	if (!dwSize)
+	if (dwSize == 0) // 글자를 못 받아 오면 error // unless success => error
 	{
-		HeapFree(GetProcessHeap(), 0, lpTemp);
+		HeapFree(GetProcessHeap(), 0, lpLetterBuf);
 		return 0;
 	}
 
-	hResult = StringCchCopyN(lpString, nMaxCount, lpTemp + dwStart, dwEnd - dwStart);
-	HeapFree(GetProcessHeap(), 0, lpTemp);
+	hResult = StringCchCopyN(lpString, nMaxCount, lpLetterBuf + dwStart, dwEnd - dwStart);
+	HeapFree(GetProcessHeap(), 0, lpLetterBuf);
 
 	switch (hResult)
 	{
-	case S_OK:
-	{
-		return dwEnd - dwStart;
-	}
+		case S_OK: // no error
+		{
+			DWORD letterLength = dwEnd - dwStart;
+			return letterLength;
+		}
 
-	case STRSAFE_E_INSUFFICIENT_BUFFER:
-	{
-		return nMaxCount - 1;
-	}
+		case STRSAFE_E_INSUFFICIENT_BUFFER: // buffer not enough
+		{
+			DWORD maxBufSize = nMaxCount - 1;
+			return maxBufSize;
+		}
 
-	default:
-	{
-		return 0;
-	}
+		default:
+		{
+			return 0;
+		}
 	}
 }
 
+/* 프린트 영역을 가리키는 구조체 구하기 
+ input : printerHandle
+ output: RECT structure
+ 기능; 물리오프셋, 물리너비/높이, 논리픽셀, 해상도를 윈도에서 가져오기
+*/
 static RECT
-GetPrintingRect(HDC hdc, RECT margins) // 프린트 영역을 가리키는 구조체 구하기 (인수:핸들, 마진) (리턴: RECT 구조체)
+GetPrintingRect(HDC hdcPrintHandle, RECT margins) 
 {
 	int iLogPixelsX, iLogPixelsY;
-	int iHorzRes, iVertRes;
+	int iHorzResolution, iVertResolution;
 	int iPhysPageX, iPhysPageY, iPhysPageW, iPhysPageH;
 	RECT rcPrintRect;
 
-	iPhysPageX = GetDeviceCaps(hdc, PHYSICALOFFSETX);
-	iPhysPageY = GetDeviceCaps(hdc, PHYSICALOFFSETY);
-	iPhysPageW = GetDeviceCaps(hdc, PHYSICALWIDTH);
-	iPhysPageH = GetDeviceCaps(hdc, PHYSICALHEIGHT);
-	iLogPixelsX = GetDeviceCaps(hdc, LOGPIXELSX);
-	iLogPixelsY = GetDeviceCaps(hdc, LOGPIXELSY);
-	iHorzRes = GetDeviceCaps(hdc, HORZRES);
-	iVertRes = GetDeviceCaps(hdc, VERTRES);
+	iPhysPageX = GetDeviceCaps(hdcPrintHandle, PHYSICALOFFSETX);
+	iPhysPageY = GetDeviceCaps(hdcPrintHandle, PHYSICALOFFSETY);
+	iPhysPageW = GetDeviceCaps(hdcPrintHandle, PHYSICALWIDTH);
+	iPhysPageH = GetDeviceCaps(hdcPrintHandle, PHYSICALHEIGHT);
+	iLogPixelsX = GetDeviceCaps(hdcPrintHandle, LOGPIXELSX);
+	iLogPixelsY = GetDeviceCaps(hdcPrintHandle, LOGPIXELSY);
+	iHorzResolution = GetDeviceCaps(hdcPrintHandle, HORZRES);
+	iVertResolution = GetDeviceCaps(hdcPrintHandle, VERTRES);
 
 	rcPrintRect.left = (margins.left * iLogPixelsX / 2540) - iPhysPageX;
 	rcPrintRect.top = (margins.top * iLogPixelsY / 2540) - iPhysPageY;
-	rcPrintRect.right = iHorzRes - (((margins.left * iLogPixelsX / 2540) - iPhysPageX) + ((margins.right * iLogPixelsX / 2540) - (iPhysPageW - iPhysPageX - iHorzRes)));
-	rcPrintRect.bottom = iVertRes - (((margins.top * iLogPixelsY / 2540) - iPhysPageY) + ((margins.bottom * iLogPixelsY / 2540) - (iPhysPageH - iPhysPageY - iVertRes)));
+	rcPrintRect.right = iHorzResolution - (((margins.left * iLogPixelsX / 2540) - iPhysPageX) + ((margins.right * iLogPixelsX / 2540) - (iPhysPageW - iPhysPageX - iHorzResolution)));
+	rcPrintRect.bottom = iVertResolution - (((margins.top * iLogPixelsY / 2540) - iPhysPageY) + ((margins.bottom * iLogPixelsY / 2540) - (iPhysPageH - iPhysPageY - iVertResolution)));
 
 	return rcPrintRect;
 }
 
-static BOOL DoSaveFile(VOID) // 파일 저장을 수행 (리턴:성공여부)
+/* 파일 저장을 수행 save files
+(리턴:성공여부) return: whether success
+*/
+static BOOL DoSaveFile(VOID) 
 {
-	BOOL bRet = TRUE;
-	HANDLE hFile;
-	LPTSTR pTemp;
-	DWORD size;
+	BOOL isSaveSuccess = TRUE;
+	HANDLE handleOfFile;
+	LPTSTR lpLetterBuf;
+	DWORD lettersize;
 
-	hFile = CreateFile(Globals.szFileName, GENERIC_WRITE, FILE_SHARE_WRITE, // 파일을 새로 생성
+	handleOfFile = CreateFile(Globals.szFileName, GENERIC_WRITE, FILE_SHARE_WRITE, // 파일을 새로 생성
 		NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
+	if (handleOfFile == INVALID_HANDLE_VALUE)
 	{
 		ShowLastError();
 		return FALSE;
 	}
 
-	size = GetWindowTextLength(Globals.hEdit) + 1;
-	pTemp = HeapAlloc(GetProcessHeap(), 0, size * sizeof(*pTemp));
-	if (!pTemp)
+	lettersize = GetWindowTextLength(Globals.hEdit) + 1;
+	lpLetterBuf = HeapAlloc(GetProcessHeap(), 0, lettersize * sizeof(*lpLetterBuf));
+	if (lpLetterBuf == NULL)
 	{
-		CloseHandle(hFile);
+		CloseHandle(handleOfFile);
 		ShowLastError();
 		return FALSE;
 	}
-	size = GetWindowText(Globals.hEdit, pTemp, size); // 현재 윈도우 창의 글자를 pTemp 버퍼에 담음
+	lettersize = GetWindowText(Globals.hEdit, lpLetterBuf, lettersize); // 현재 윈도우 창의 글자를 lpLetterBuf에 담음
 
-	if (size)
+	if (lettersize)
 	{
-		if (!WriteText(hFile, (LPWSTR)pTemp, size, Globals.encFile, Globals.iEoln)) // 메모장 파일에 씀(text.c의 함수인 WriteText 이용)
+		if (WriteText(handleOfFile, (LPWSTR)lpLetterBuf, lettersize, Globals.encFile, Globals.iEoln) == FALSE) // 메모장 파일에 씀(text.c의 함수인 WriteText 이용)
 		{
 			ShowLastError();
-			bRet = FALSE;
+			isSaveSuccess = FALSE;
 		}
 		else
 		{
-			SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0);
-			bRet = TRUE;
+			SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0); // 저장을 해서 수정이 안 된 상태로 만듬 // make it unmodified mode
+			isSaveSuccess = TRUE;
 		}
 	}
 
-	CloseHandle(hFile);
-	HeapFree(GetProcessHeap(), 0, pTemp);
-	return bRet;
+	CloseHandle(handleOfFile);
+	HeapFree(GetProcessHeap(), 0, lpLetterBuf);
+	return isSaveSuccess;
 }
 
-/**
-* Returns:
-*   TRUE  - User agreed to close (both save/don't save)
-*   FALSE - User cancelled close by selecting "Cancel"
+/*
+ 파일 닫기 수행 :
+ Returns:
+   TRUE  - User agreed to close (both save/don't save)
+   FALSE - User cancelled close by selecting "Cancel"
 */
-BOOL DoCloseFile(VOID) // 파일 닫기 수행 (리턴: 성공여부)
+BOOL DoCloseFile(VOID) 
 {
-	int nResult;
+	int dialogResult;
 
-	if (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0)) // 파일이 변경되었는지
+	if (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0)) // 파일이 변경되었는지 여부 
 	{
-		/* prompt user to save changes */
-		nResult = AlertFileNotSaved(Globals.szFileName);
-		switch (nResult)
+		// prompt user to save changes 
+		dialogResult = AlertFileNotSaved(Globals.szFileName);
+		switch (dialogResult)
 		{
 		case IDYES:
 			if (!DIALOG_FileSave())
