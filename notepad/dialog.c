@@ -394,17 +394,20 @@ BOOL DoCloseFile(VOID)
 		}
 	}
 
-	SetFileName(empty_str); // 파일명을 다시 빈 파일로 설정
-	UpdateWindowCaption(TRUE); // 타이틀을 최신화
+	SetFileName(empty_str);
+	UpdateWindowCaption(TRUE); 
 
 	return TRUE;
 }
 
-VOID DoOpenFile(LPCTSTR szFileName) // 파일 열기 수행 (인수: 파일이름)
+/* 파일 열기 수행 
+(인수: 파일이름)
+*/
+VOID DoOpenFile(LPCTSTR szFileName) 
 {
-	static const TCHAR dotlog[] = _T(".LOG");
+	static const TCHAR logExtension[] = _T(".LOG");
 	HANDLE hFile;
-	LPTSTR pszText = NULL;
+	LPTSTR lpTextBuf = NULL;
 	DWORD dwTextLen;
 	TCHAR log[5];
 
@@ -414,48 +417,55 @@ VOID DoOpenFile(LPCTSTR szFileName) // 파일 열기 수행 (인수: 파일이름)
 
 	hFile = CreateFile(szFileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, // 파일을 열기
 		OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
-	{
+	if (hFile == INVALID_HANDLE_VALUE) {
 		ShowLastError();
-		goto done;
+		if (hFile != INVALID_HANDLE_VALUE)
+			CloseHandle(hFile);
+		return;
 	}
 
-	if (!ReadText(hFile, (LPWSTR *)&pszText, &dwTextLen, &Globals.encFile, &Globals.iEoln)) // 파일에서 pszText로 내용을 읽어오기
-	{
+	if (ReadText(hFile, (LPWSTR *)&lpTextBuf, &dwTextLen, &Globals.encFile, &Globals.iEoln) == FALSE) { // 파일에서 pszText로 내용을 읽어오기
 		ShowLastError();
-		goto done;
+		if (hFile != INVALID_HANDLE_VALUE)
+			CloseHandle(hFile);
+		if (lpTextBuf)
+			HeapFree(GetProcessHeap(), 0, lpTextBuf);
+		return;
 	}
-	SetWindowText(Globals.hEdit, pszText); // 메모장의 에딧 컨트롤에 파일 내용을 적용
+	SetWindowText(Globals.hEdit, lpTextBuf); // 메모장의 에딧 컨트롤에 파일 내용을 적용 // set letters to editControl
 
-	SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0); // 파일 수정여부는 다시 미 수정 상태로
-	SendMessage(Globals.hEdit, EM_EMPTYUNDOBUFFER, 0, 0); // 실행취소(ctrl+z) 버퍼 초기화
-	SetFocus(Globals.hEdit); // 키보드 입력 포커스
+	SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0); // 파일 수정여부는 다시 미 수정 상태로 // make it unmodified mode
+	SendMessage(Globals.hEdit, EM_EMPTYUNDOBUFFER, 0, 0); // 실행취소(ctrl+z) 버퍼 초기화 // claer undo buffer
+	SetFocus(Globals.hEdit); // 키보드 입력 인식하도록
 
-							 /*  If the file starts with .LOG, add a time/date at the end and set cursor after
-							 *  See http://support.microsoft.com/?kbid=260563
-							 */
-	if (GetWindowText(Globals.hEdit, log, ARRAY_SIZE(log)) && !_tcscmp(log, dotlog)) // 로그 파일 일 때
-	{
-		static const TCHAR lf[] = _T("\r\n");
-		SendMessage(Globals.hEdit, EM_SETSEL, GetWindowTextLength(Globals.hEdit), -1);
-		SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
-		DIALOG_EditTimeDate();
-		SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
+/*  If the file starts with .LOG, add a time/date at the end and set cursor after
+*  See http://support.microsoft.com/?kbid=260563
+*/					
+	if (_tcscmp(log, logExtension) == 0) { // 로그 파일 일 때 : when open log files
+		if (GetWindowText(Globals.hEdit, log, ARRAY_SIZE(log))) {
+			static const TCHAR linefeed[] = _T("\r\n");
+			static const DWORD endOfText = -1;
+
+			SendMessage(Globals.hEdit, EM_SETSEL, GetWindowTextLength(Globals.hEdit), endOfText); // 편집창의 끝으로 포커스를 이동
+			SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)linefeed); // 라인피드 삽입
+			DIALOG_EditTimeDate(); // 현재 시간을 삽입하기 // insert current time
+			SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)linefeed);
+		}
 	}
 
 	SetFileName(szFileName);
 	UpdateWindowCaption(TRUE);
 	NOTEPAD_EnableSearchMenu(); // 찾기 메뉴 활성화
-done:
+	
 	if (hFile != INVALID_HANDLE_VALUE)
 		CloseHandle(hFile);
-	if (pszText)
-		HeapFree(GetProcessHeap(), 0, pszText);
+	if (lpTextBuf)
+		HeapFree(GetProcessHeap(), 0, lpTextBuf);
 }
 
-VOID DIALOG_FileNew(VOID) // 새 파일 만들기 선택 시 호출
+// 새 파일 만들기 선택 시 호출
+VOID DIALOG_FileNew(VOID) 
 {
-	/* Close any files and prompt to save changes */
 	if (DoCloseFile()) { // 기존 파일 닫기
 		SetWindowText(Globals.hEdit, empty_str);
 		SendMessage(Globals.hEdit, EM_EMPTYUNDOBUFFER, 0, 0);
@@ -464,14 +474,16 @@ VOID DIALOG_FileNew(VOID) // 새 파일 만들기 선택 시 호출
 	}
 }
 
-VOID DIALOG_FileOpen(VOID) // 파일 열기
+// 파일 열기 다이얼로그 열기 // open fileopn dialog
+VOID DIALOG_FileOpen(VOID) 
 {
-	OPENFILENAME openfilename; // 파일 정보 담고 있는 구조체
+	OPENFILENAME openfilename; // 파일 정보 담고 있는 구조체 // contains file info
 	TCHAR szPath[MAX_PATH];
+	BOOL isNewFile = Globals.szFileName[0] == 0 ? TRUE : FALSE;
 
 	ZeroMemory(&openfilename, sizeof(openfilename));
 
-	if (Globals.szFileName[0] == 0)
+	if (isNewFile)
 		_tcscpy(szPath, txt_files);
 	else
 		_tcscpy(szPath, Globals.szFileName);
@@ -483,9 +495,9 @@ VOID DIALOG_FileOpen(VOID) // 파일 열기
 	openfilename.lpstrFile = szPath;
 	openfilename.nMaxFile = ARRAY_SIZE(szPath);
 	openfilename.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY;
-	openfilename.lpstrDefExt = szDefaultExt; // 기본 확장자 설정
+	openfilename.lpstrDefExt = szDefaultExt; // set default extension
 
-	if (GetOpenFileName(&openfilename)) { // 파일열기 다이얼로그 오픈
+	if (GetOpenFileName(&openfilename)) { // 파일열기 다이얼로그 오픈 // dialog print
 		if (FileExists(openfilename.lpstrFile))
 			DoOpenFile(openfilename.lpstrFile);
 		else
@@ -495,138 +507,138 @@ VOID DIALOG_FileOpen(VOID) // 파일 열기
 
 BOOL DIALOG_FileSave(VOID) // 파일저장 클릭 시 호출 => 이후 DoSaveFile로 저장 처리
 {
-	if (Globals.szFileName[0] == 0) // 새 파일이면 => 다른이름으로 저장과 같은 동작
-	{
+	BOOL isNewFile = Globals.szFileName[0] == 0 ? TRUE : FALSE;
+
+	if (isNewFile) { // 새 파일이면 => 다른이름으로 저장과 같은 동작 // if newFile => act like SaveAS
 		return DIALOG_FileSaveAs();
 	}
-	else if (DoSaveFile()) // 기존파일이면
-	{
+	else if (DoSaveFile()) { // 기존파일이면 // if there is current file
 		UpdateWindowCaption(TRUE);
 		return TRUE;
 	}
 	return FALSE;
 }
 
+// 다른이름으로 저장 수행(콜백함수) // SaveAS Dialog (callback function)
 static UINT_PTR
 CALLBACK
-DIALOG_FileSaveAs_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) // 다른이름으로 저장 수행(콜백함수)
+DIALOG_FileSaveAs_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) 
 {
-	TCHAR szText[128];
-	HWND hCombo;
+	TCHAR szTextBuf[128];
+	HWND hComboEncode, hComboEOLN;
 
 	UNREFERENCED_PARAMETER(wParam);
 
 	switch (msg)
 	{
 	case WM_INITDIALOG: // 다이얼로그 오픈 시 초기화
-		hCombo = GetDlgItem(hDlg, ID_ENCODING); // 인코딩 종류에 관한 핸들포인터 얻기
+		hComboEncode = GetDlgItem(hDlg, ID_ENCODING); // 인코딩 종류에 관한 핸들포인터 얻기
 
-		LoadString(Globals.hInstance, STRING_ANSI, szText, ARRAY_SIZE(szText));
-		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
+		LoadString(Globals.hInstance, STRING_ANSI, szTextBuf, ARRAY_SIZE(szTextBuf));
+		SendMessage(hComboEncode, CB_ADDSTRING, 0, (LPARAM)szTextBuf); // 콤보박스에 항목들 더하기 // add items of combobox
 
-		LoadString(Globals.hInstance, STRING_UNICODE, szText, ARRAY_SIZE(szText));
-		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
+		LoadString(Globals.hInstance, STRING_UNICODE, szTextBuf, ARRAY_SIZE(szTextBuf));
+		SendMessage(hComboEncode, CB_ADDSTRING, 0, (LPARAM)szTextBuf);
 
-		LoadString(Globals.hInstance, STRING_UNICODE_BE, szText, ARRAY_SIZE(szText));
-		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
+		LoadString(Globals.hInstance, STRING_UNICODE_BE, szTextBuf, ARRAY_SIZE(szTextBuf));
+		SendMessage(hComboEncode, CB_ADDSTRING, 0, (LPARAM)szTextBuf);
 
-		LoadString(Globals.hInstance, STRING_UTF8, szText, ARRAY_SIZE(szText));
-		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
+		LoadString(Globals.hInstance, STRING_UTF8, szTextBuf, ARRAY_SIZE(szTextBuf));
+		SendMessage(hComboEncode, CB_ADDSTRING, 0, (LPARAM)szTextBuf);
 
-		SendMessage(hCombo, CB_SETCURSEL, Globals.encFile, 0);
+		SendMessage(hComboEncode, CB_SETCURSEL, Globals.encFile, 0);
 
-		hCombo = GetDlgItem(hDlg, ID_EOLN); // 라인엔드 관한 핸들포인터 얻기
+		hComboEOLN = GetDlgItem(hDlg, ID_EOLN); // 라인엔드 관한 핸들포인터 얻기
 
-		LoadString(Globals.hInstance, STRING_CRLF, szText, ARRAY_SIZE(szText));
-		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
+		LoadString(Globals.hInstance, STRING_CRLF, szTextBuf, ARRAY_SIZE(szTextBuf));
+		SendMessage(hComboEOLN, CB_ADDSTRING, 0, (LPARAM)szTextBuf);
 
-		LoadString(Globals.hInstance, STRING_LF, szText, ARRAY_SIZE(szText));
-		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
+		LoadString(Globals.hInstance, STRING_LF, szTextBuf, ARRAY_SIZE(szTextBuf));
+		SendMessage(hComboEOLN, CB_ADDSTRING, 0, (LPARAM)szTextBuf);
 
-		LoadString(Globals.hInstance, STRING_CR, szText, ARRAY_SIZE(szText));
-		SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)szText);
+		LoadString(Globals.hInstance, STRING_CR, szTextBuf, ARRAY_SIZE(szTextBuf));
+		SendMessage(hComboEOLN, CB_ADDSTRING, 0, (LPARAM)szTextBuf);
 
-		SendMessage(hCombo, CB_SETCURSEL, Globals.iEoln, 0);
+		SendMessage(hComboEOLN, CB_SETCURSEL, Globals.iEoln, 0);
 		break;
 
 	case WM_NOTIFY: // 다이얼로그 작동 중 메시지
-		if (((NMHDR *)lParam)->code == CDN_FILEOK) // OK 버튼 클릭시 설정 사항 반영
+		if (((NMHDR *)lParam)->code == CDN_FILEOK) // OK 버튼 클릭시 설정 사항 반영 // todo: NMHDR 로 오는 구조체가 뭔지 알기
 		{
-			hCombo = GetDlgItem(hDlg, ID_ENCODING);
-			if (hCombo)
-				Globals.encFile = (int)SendMessage(hCombo, CB_GETCURSEL, 0, 0);
+			hComboEncode = GetDlgItem(hDlg, ID_ENCODING);
+			if (hComboEncode)
+				Globals.encFile = (int)SendMessage(hComboEncode, CB_GETCURSEL, 0, 0);
 
-			hCombo = GetDlgItem(hDlg, ID_EOLN);
-			if (hCombo)
-				Globals.iEoln = (int)SendMessage(hCombo, CB_GETCURSEL, 0, 0);
+			hComboEOLN = GetDlgItem(hDlg, ID_EOLN);
+			if (hComboEOLN)
+				Globals.iEoln = (int)SendMessage(hComboEOLN, CB_GETCURSEL, 0, 0);
 		}
 		break;
 	}
 	return 0;
 }
 
-BOOL DIALOG_FileSaveAs(VOID) //다른이름으로 저장 클릭 시
+//다른이름으로 저장 클릭 시
+BOOL DIALOG_FileSaveAs(VOID) 
 {
-	OPENFILENAME saveas;
+	OPENFILENAME saveAsFileInfo;
 	TCHAR szPath[MAX_PATH];
+	BOOL isNewFile = Globals.szFileName[0] == 0 ? TRUE: FALSE;
 
-	ZeroMemory(&saveas, sizeof(saveas));
+	ZeroMemory(&saveAsFileInfo, sizeof(saveAsFileInfo));
 
-	if (Globals.szFileName[0] == 0)
+	if (isNewFile)
 		_tcscpy(szPath, txt_files);
 	else
 		_tcscpy(szPath, Globals.szFileName);
 
-	saveas.lStructSize = sizeof(OPENFILENAME);
-	saveas.hwndOwner = Globals.hMainWnd;
-	saveas.hInstance = Globals.hInstance;
-	saveas.lpstrFilter = Globals.szFilter;
-	saveas.lpstrFile = szPath;
-	saveas.nMaxFile = ARRAY_SIZE(szPath);
-	saveas.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
+	saveAsFileInfo.lStructSize = sizeof(OPENFILENAME);
+	saveAsFileInfo.hwndOwner = Globals.hMainWnd;
+	saveAsFileInfo.hInstance = Globals.hInstance;
+	saveAsFileInfo.lpstrFilter = Globals.szFilter;
+	saveAsFileInfo.lpstrFile = szPath;
+	saveAsFileInfo.nMaxFile = ARRAY_SIZE(szPath);
+	saveAsFileInfo.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY |
 		OFN_EXPLORER | OFN_ENABLETEMPLATE | OFN_ENABLEHOOK;
-	saveas.lpstrDefExt = szDefaultExt;
-	saveas.lpTemplateName = MAKEINTRESOURCE(DIALOG_ENCODING);
-	saveas.lpfnHook = DIALOG_FileSaveAs_Hook; // DIALOG_FileSaveAs_Hook 콜백함수 등록
+	saveAsFileInfo.lpstrDefExt = szDefaultExt;
+	saveAsFileInfo.lpTemplateName = MAKEINTRESOURCE(DIALOG_ENCODING);
+	saveAsFileInfo.lpfnHook = DIALOG_FileSaveAs_Hook; // DIALOG_FileSaveAs_Hook 콜백함수 등록
 
-	if (GetSaveFileName(&saveas)) // 저장 다이얼로그 로드
-	{
+	if (GetSaveFileName(&saveAsFileInfo)) { // 저장 다이얼로그 로드 열기 // dialog Print
 		/* HACK: Because in ROS, Save-As boxes don't check the validity
 		* of file names and thus, here, szPath can be invalid !! We only
 		* see its validity when we call DoSaveFile()... */
 		SetFileName(szPath);
-		if (DoSaveFile())
-		{
+		if (DoSaveFile()) {
 			UpdateWindowCaption(TRUE);
 			return TRUE;
 		}
-		else
-		{
+		else {
 			SetFileName(_T(""));
 			return FALSE;
 		}
 	}
-	else
-	{
+	else {
 		return FALSE;
 	}
 }
 
-VOID DIALOG_FilePrint(VOID) // 파일 프린트
+// 파일 프린트
+VOID DIALOG_FilePrint(VOID) 
 {
+	static const TCHAR times_new_roman[] = _T("Times New Roman");
 	DOCINFO di;
 	TEXTMETRIC tm;
 	PRINTDLG printer;
 	SIZE szMetric;
-	int border;
-	int xLeft, yTop, pagecount, dopage, copycount;
-	unsigned int i;
 	LOGFONT hdrFont; // 폰트 정보 담은 구조체
 	HFONT font, old_font = 0;
 	DWORD size;
 	LPTSTR pTemp;
-	static const TCHAR times_new_roman[] = _T("Times New Roman");
 	RECT rcPrintRect;
+	int border;
+	int xLeft, yTop, pagecount, dopage, copycount;
+	unsigned int i;
 
 	/* Get a small font and print some header info on each page */
 	ZeroMemory(&hdrFont, sizeof(hdrFont));
@@ -658,7 +670,7 @@ VOID DIALOG_FilePrint(VOID) // 파일 프린트
 
 	printer.nFromPage = 0;
 	printer.nMinPage = 1;
-	// FIXME : 문제가 있다고 여겨짐
+	// FIXME : 최대 출력 장수 계산 못함
 	printer.nToPage = (WORD)-1;
 	printer.nMaxPage = (WORD)-1;
 
@@ -1232,7 +1244,6 @@ VOID DIALOG_StatusBarUpdateCaretPos(VOID) // 상태바 위치 최신화
 VOID DIALOG_ViewStatusBar(VOID) // 상태바 보기 및 숨기기
 {
 	Globals.bShowStatusBar = !Globals.bShowStatusBar;
-
 	DoCreateStatusBar();
 }
 
