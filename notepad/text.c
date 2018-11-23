@@ -243,7 +243,6 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
     BYTE buffer[1024];
     UINT iCodePage = 0;
     DWORD dwDummy, i;
-    //BOOL bSuccess = FALSE;
     int iBufferSize, iRequiredBytes;
     BYTE b; //UNICODE_BE에서 바이트를 교환할 때 사용할 공간
 	//todo : BYTE b; 의 용도가 temp이므로 의미있는 변수명으로 바꿀 수 있음
@@ -329,22 +328,8 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
 		}
 
         /* free the buffer, if we have allocated one */
-		/*
-        if (pAllocBuffer) //버퍼를 할당하여 사용하였으면 메모리 해제
-        {
-            HeapFree(GetProcessHeap(), 0, pAllocBuffer);
-            pAllocBuffer = NULL;
-        }
-		*/
 		freeBuffer(pAllocBuffer);
     }
-    //bSuccess = TRUE; //파일에 쓰기 성공
-
-/*
-done: //위의 while문에서 에러 발생 시 올 수 있으므로 메모리를 확인하여 해제한다
-    if (pAllocBuffer)
-        HeapFree(GetProcessHeap(), 0, pAllocBuffer);
-		*/
 
     return TRUE;
 }
