@@ -630,7 +630,7 @@ VOID DIALOG_FilePrint(VOID)
 	DOCINFO di;
 	TEXTMETRIC tm;
 	PRINTDLG printer;
-	SIZE szMetric;
+	SIZE szMetric; // rectangle의 너비, 높이 설정
 	LOGFONT hdrFont; // 폰트 정보 담은 구조체
 	HFONT font, old_font = 0;
 	DWORD size;
@@ -640,30 +640,29 @@ VOID DIALOG_FilePrint(VOID)
 	int xLeft, yTop, pagecount, dopage, copycount;
 	unsigned int i;
 
-	/* Get a small font and print some header info on each page */
+	// Get a small font and print some header info on each page 
 	ZeroMemory(&hdrFont, sizeof(hdrFont));
-	hdrFont.lfHeight = 100;
-	hdrFont.lfWeight = FW_BOLD;
-	hdrFont.lfCharSet = ANSI_CHARSET;
-	hdrFont.lfOutPrecision = OUT_DEFAULT_PRECIS;
+	hdrFont.lfHeight = 100; 
+	hdrFont.lfWeight = FW_BOLD; // 글꼴의 가중치를 지정함
+	hdrFont.lfCharSet = ANSI_CHARSET; // 문자 집합 지정
+	hdrFont.lfOutPrecision = OUT_DEFAULT_PRECIS; // 출력 정밀도 지정
 	hdrFont.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-	hdrFont.lfQuality = PROOF_QUALITY;
-	hdrFont.lfPitchAndFamily = VARIABLE_PITCH | FF_ROMAN;
-	_tcscpy(hdrFont.lfFaceName, times_new_roman);
+	hdrFont.lfQuality = PROOF_QUALITY; // 출력 품질 지정
+	hdrFont.lfPitchAndFamily = VARIABLE_PITCH | FF_ROMAN; // 글꼴 패밀리를 지정합니다
+	_tcscpy(hdrFont.lfFaceName, times_new_roman); // 서체 이름 지정
 
 	font = CreateFontIndirect(&hdrFont); // LOGFONT 구조체를 바탕으로 폰트 생성
 
-										 /* Get Current Settings */
+	// 기존 세팅을 가져옴 // get current settings							
 	ZeroMemory(&printer, sizeof(printer));
-	printer.lStructSize = sizeof(printer);
-	printer.hwndOwner = Globals.hMainWnd;
-	printer.hInstance = Globals.hInstance;
+	printer.lStructSize = sizeof(printer); // 구조체 크기
+	printer.hwndOwner = Globals.hMainWnd; // 대화상자 소유한 윈도우 핸들
+	printer.hInstance = Globals.hInstance; // 별도의 대화상자 템플릿 사용시 리소스 가진 인스턴스 핸들
 
-	/* Set some default flags */
-	printer.Flags = PD_RETURNDC | PD_SELECTION;
+	printer.Flags = PD_RETURNDC | PD_SELECTION; // 대화상자 초기화에 사용 플래그 // Set some default flags 
 
-	/* Disable the selection radio button if there is no text selected */
-	if (!GetSelectionTextLength(Globals.hEdit))
+	// 텍스트 없으면 선택 버튼 없앰 // Disable the selection radio button if there is no text selected
+	if (GetSelectionTextLength(Globals.hEdit) == 0)
 	{
 		printer.Flags = printer.Flags | PD_NOSELECTION;
 	}
@@ -674,151 +673,129 @@ VOID DIALOG_FilePrint(VOID)
 	printer.nToPage = (WORD)-1;
 	printer.nMaxPage = (WORD)-1;
 
-	/* Let commdlg manage copy settings */
 	printer.nCopies = (WORD)PD_USEDEVMODECOPIES;
 
-	printer.hDevMode = Globals.hDevMode;
-	printer.hDevNames = Globals.hDevNames;
+	printer.hDevMode = Globals.hDevMode; // devmode 구조체를 가지는 전역 메모리 핸들
+	printer.hDevNames = Globals.hDevNames; // denames 구조체를 가지는 전역 메모리 핸들
 
-	if (!PrintDlg(&printer)) // 프린트 다이얼로그를 열기
+	if (PrintDlg(&printer) == FALSE) // 프린트 다이얼로그를 열기 // open print dialog
 	{
 		DeleteObject(font);
 		return;
 	}
-
+	// 다이얼로그에서 설정한 대로 해당 구조체 최신화 // update structures
 	Globals.hDevMode = printer.hDevMode;
 	Globals.hDevNames = printer.hDevNames;
 
-	assert(printer.hDC != 0);
+	assert(printer.hDC != 0); // 디바이스 컨텍스트(프린터) 핸들이 널이면 에러 // if not error occur (debug mode only)
 
-	/* initialize DOCINFO */
-	di.cbSize = sizeof(DOCINFO);
-	di.lpszDocName = Globals.szFileTitle;
-	di.lpszOutput = NULL;
-	di.lpszDatatype = NULL;
-	di.fwType = 0;
+	di.cbSize = sizeof(DOCINFO); // 구조체 크기
+	di.lpszDocName = Globals.szFileTitle; // 문서 이름 지정 
+	di.lpszOutput = NULL; // 출력 파일 이름 지정 
+	di.lpszDatatype = NULL; // 인쇄 작업을 기록하는 데 사용되는 데이터 유형 지정하는 null로 끝나는 문자열의 포인터
+	di.fwType = 0; // 인쇄 작업에 대한 추가 정보 
 
-	if (StartDoc(printer.hDC, &di) <= 0) // 프린트 작업 수행
-	{
+	if (StartDoc(printer.hDC, &di) <= 0) { // 프린트 작업 수행
 		DeleteObject(font);
 		return;
 	}
 
-
-	/* Get the file text */
-	if (printer.Flags & PD_SELECTION)
-	{
-		size = GetSelectionTextLength(Globals.hEdit) + 1;
+	if (printer.Flags & PD_SELECTION) { // 편집창의 선택된 글 내용만 가져오기 // Get the file text 
+		size = GetSelectionTextLength(Globals.hEdit) + 1; // todo : size => textLength
 	}
-	else
-	{
+	else { // 전체 글 내용을 가져오기
 		size = GetWindowTextLength(Globals.hEdit) + 1;
 	}
 
-	pTemp = HeapAlloc(GetProcessHeap(), 0, size * sizeof(TCHAR)); // 버퍼 할당
-	if (!pTemp)
-	{
+	pTemp = HeapAlloc(GetProcessHeap(), 0, size * sizeof(TCHAR)); // 버퍼 할당 // todo : pTemp => pTextBuf
+	if (pTemp == NULL) {
 		EndDoc(printer.hDC);
 		DeleteObject(font);
 		ShowLastError();
 		return;
 	}
 
-	if (printer.Flags & PD_SELECTION)
-	{
+	if (printer.Flags & PD_SELECTION) {
 		size = GetSelectionText(Globals.hEdit, pTemp, size);
 	}
-	else
-	{
+	else {
 		size = GetWindowText(Globals.hEdit, pTemp, size);
 	}
 
-	/* Get the current printing area */
+	// 현재 인쇄 영역을 가져옴 // Get the current printing area 
 	rcPrintRect = GetPrintingRect(printer.hDC, Globals.lMargins); // 프린팅 영역 (RECT)
+															  
+	SetMapMode(printer.hDC, MM_TEXT); // 각 논리 유닛 하나가 한 픽셀에 매치되게 함 // Ensure that each logical unit maps to one pixel 
 
-																  /* Ensure that each logical unit maps to one pixel */
-	SetMapMode(printer.hDC, MM_TEXT);
-
-	/* Needed to get the correct height of a text line */ // 물리적인 폰트의 크기를 알아냄
-	GetTextMetrics(printer.hDC, &tm);
+	GetTextMetrics(printer.hDC, &tm); // 물리적인 폰트의 크기를 알아냄 // Needed to get the correct height of a text line 
 
 	border = 15;
 	for (copycount = 1; copycount <= printer.nCopies; copycount++) { // 반복문을 돌며 여러 페이지 출력
-		i = 0;
+		i = 0; // todo: 위치 조정할 필요 있는지 검토
 		pagecount = 1;
 		do {
-			/* Don't start a page if none of the conditions below are true */
 			dopage = 0;
 
-			/* The user wants to print the current selection */
-			if (printer.Flags & PD_SELECTION)
-			{
+			if (printer.Flags & PD_SELECTION) { // The user wants to print the current selection
+				dopage = 1;
+			}
+			if (!(printer.Flags & PD_PAGENUMS) && !(printer.Flags & PD_SELECTION)) { // The user wants to print the entire document 
+				dopage = 1;
+			}
+			if ((pagecount >= printer.nFromPage && pagecount <= printer.nToPage)) { // The user wants to print a specified range of pages 
 				dopage = 1;
 			}
 
-			/* The user wants to print the entire document */
-			if (!(printer.Flags & PD_PAGENUMS) && !(printer.Flags & PD_SELECTION))
-			{
-				dopage = 1;
-			}
-
-			/* The user wants to print a specified range of pages */
-			if ((pagecount >= printer.nFromPage && pagecount <= printer.nToPage))
-			{
-				dopage = 1;
-			}
-
-			old_font = SelectObject(printer.hDC, font);
+			old_font = SelectObject(printer.hDC, font); // 인쇄에 설정할 폰트 설정
 
 			if (dopage) {
-				if (StartPage(printer.hDC) <= 0) {
+				if (StartPage(printer.hDC) <= 0) { // 페이지 시작을 알림
 					SelectObject(printer.hDC, old_font);
 					EndDoc(printer.hDC);
-					DeleteDC(printer.hDC);
+					DeleteDC(printer.hDC); // 메모리에 할당되고 메모리상에서 사용하는 DC를 해제하기 위한 용도
 					HeapFree(GetProcessHeap(), 0, pTemp);
-					DeleteObject(font);
+					DeleteObject(font); // 메모리에서 해당 오브젝트 삭제
 					AlertPrintError();
 					return;
 				}
 
-				SetViewportOrgEx(printer.hDC, rcPrintRect.left, rcPrintRect.top, NULL);
+				// 프린트 시작의 원점을 2,3번째 인수로 설정 // set 2,3rd parameters as start point 
+				SetViewportOrgEx(printer.hDC, rcPrintRect.left, rcPrintRect.top, NULL); 
 
-				/* Write a rectangle and header at the top of each page */
+				// Write a rectangle and header at the top of each page // 사각형을 그림
+				// 인수: 핸들 / 좌측 좌표 / 상단 좌표 / 우측 좌표 / 하단 좌표
 				Rectangle(printer.hDC, border, border, rcPrintRect.right - border, border + tm.tmHeight * 2);
-				/* I don't know what's up with this TextOut command. This comes out
-				kind of mangled.
-				*/
+				
+				// todo : I don't know what's up with this TextOut command. This comes out kind of mangled.
 				TextOut(printer.hDC,
-					border * 2,
-					border + tm.tmHeight / 2,
-					Globals.szFileTitle,
-					lstrlen(Globals.szFileTitle));
+					border * 2, // x 좌표 
+					border + tm.tmHeight / 2, // y 좌표
+					Globals.szFileTitle, // 출력 내용(파일 제목)
+					lstrlen(Globals.szFileTitle)); // 파일 제목의 길이
 			}
 
-			/* The starting point for the main text */
+			// 머릿말이 끝나고 메인 텍스트 부분이 나타남 // The starting point for the main text 
 			xLeft = 0;
-			yTop = border + tm.tmHeight * 4;
+			yTop = border + tm.tmHeight * 4; 
 
 			SelectObject(printer.hDC, old_font);
 
-			/* Since outputting strings is giving me problems, output the main
-			* text one character at a time. */
+			// Since outputting strings is giving me problems, output the main text one character at a time. 
 			do {
 				if (pTemp[i] == '\n') { // 줄 넘기기
-					xLeft = 0;
+					xLeft = 0; // todo : 일정한 마진 값을 설정
 					yTop += tm.tmHeight;
 				}
 				else if (pTemp[i] != '\r') { // \r 무시하기
 					if (dopage)
 						TextOut(printer.hDC, xLeft, yTop, &pTemp[i], 1);
 
-					/* We need to get the width for each individual char, since a proportional font may be used */
-					GetTextExtentPoint32(printer.hDC, &pTemp[i], 1, &szMetric);
+					// We need to get the width for each individual char, since a proportional font may be used 
+					GetTextExtentPoint32(printer.hDC, &pTemp[i], 1, &szMetric); // 문자열의 크기 조사 -> szMetric에 저장
 					xLeft += szMetric.cx;
 
-					/* Insert a line break if the current line does not fit into the printing area */
-					if (xLeft > rcPrintRect.right) // 여백을 초과 시 다음줄로
-					{
+					// Insert a line break if the current line does not fit into the printing area 
+					if (xLeft > rcPrintRect.right) { // 여백을 초과 시 다음줄로
 						xLeft = 0;
 						yTop = yTop + tm.tmHeight;
 					}
@@ -826,55 +803,63 @@ VOID DIALOG_FilePrint(VOID)
 			} while (i++ < size && yTop < rcPrintRect.bottom);
 
 			if (dopage)
-				EndPage(printer.hDC);
-			pagecount++;
-		} while (i < size);
+				EndPage(printer.hDC); // 페이지 종료
+			pagecount++; 
+		} while (i < size); // 모든 문자 출력할 때까지 // until all the letters printed
 	}
 
 	if (old_font != 0)
 		SelectObject(printer.hDC, old_font);
-	EndDoc(printer.hDC); // 프린트 종ㄽ
+	EndDoc(printer.hDC); // 프린트 종료 
 	DeleteDC(printer.hDC);
 	HeapFree(GetProcessHeap(), 0, pTemp);
 	DeleteObject(font);
 }
 
-VOID DIALOG_FileExit(VOID) // 나가기 선택
+// 나가기 선택 // execute exit
+VOID DIALOG_FileExit(VOID) 
 {
 	PostMessage(Globals.hMainWnd, WM_CLOSE, 0, 0l);
 }
 
-VOID DIALOG_EditUndo(VOID) // 실행취소
+// 실행취소 // select undo
+VOID DIALOG_EditUndo(VOID) 
 {
 	SendMessage(Globals.hEdit, EM_UNDO, 0, 0);
 }
 
-VOID DIALOG_EditCut(VOID) // 잘라내기
+// 잘라내기 // execute cut
+VOID DIALOG_EditCut(VOID) 
 {
 	SendMessage(Globals.hEdit, WM_CUT, 0, 0);
 }
 
-VOID DIALOG_EditCopy(VOID) //복사하기
+//복사하기 // execute copy
+VOID DIALOG_EditCopy(VOID) 
 {
 	SendMessage(Globals.hEdit, WM_COPY, 0, 0);
 }
 
-VOID DIALOG_EditPaste(VOID) //붙여넣기
+//붙여넣기 // execute paste
+VOID DIALOG_EditPaste(VOID) 
 {
 	SendMessage(Globals.hEdit, WM_PASTE, 0, 0);
 }
 
-VOID DIALOG_EditDelete(VOID) //지우기
+//지우기 // execute delete
+VOID DIALOG_EditDelete(VOID) 
 {
 	SendMessage(Globals.hEdit, WM_CLEAR, 0, 0);
 }
 
-VOID DIALOG_EditSelectAll(VOID) // 모두 선택
+// 모두 선택 // execute "select all"
+VOID DIALOG_EditSelectAll(VOID) 
 {
 	SendMessage(Globals.hEdit, EM_SETSEL, 0, (LPARAM)-1);
 }
 
-VOID DIALOG_EditTimeDate(VOID) // 현재 날짜 및 시간 삽입
+// 현재 날짜 및 시간 삽입 // insert current date & time
+VOID DIALOG_EditTimeDate(VOID) 
 {
 	SYSTEMTIME st;
 	TCHAR szDate[MAX_STRING_LEN];
