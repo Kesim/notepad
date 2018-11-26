@@ -444,7 +444,7 @@ VOID DoOpenFile(LPCTSTR szFileName)
 	if (_tcscmp(log, logExtension) == 0) { // 로그 파일 일 때 : when open log files
 		if (GetWindowText(Globals.hEdit, log, ARRAY_SIZE(log))) {
 			static const TCHAR linefeed[] = _T("\r\n");
-			static const DWORD endOfText = -1;
+			static const DWORD endOfText = (DWORD)-1;
 
 			SendMessage(Globals.hEdit, EM_SETSEL, GetWindowTextLength(Globals.hEdit), endOfText); // 편집창의 끝으로 포커스를 이동
 			SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)linefeed); // 라인피드 삽입
@@ -662,8 +662,7 @@ VOID DIALOG_FilePrint(VOID)
 	printer.Flags = PD_RETURNDC | PD_SELECTION; // 대화상자 초기화에 사용 플래그 // Set some default flags 
 
 	// 텍스트 없으면 선택 버튼 없앰 // Disable the selection radio button if there is no text selected
-	if (GetSelectionTextLength(Globals.hEdit) == 0)
-	{
+	if (GetSelectionTextLength(Globals.hEdit) == 0) {
 		printer.Flags = printer.Flags | PD_NOSELECTION;
 	}
 
@@ -861,139 +860,126 @@ VOID DIALOG_EditSelectAll(VOID)
 // 현재 날짜 및 시간 삽입 // insert current date & time
 VOID DIALOG_EditTimeDate(VOID) 
 {
-	SYSTEMTIME st;
+	SYSTEMTIME localTime; 
 	TCHAR szDate[MAX_STRING_LEN];
 	TCHAR szText[MAX_STRING_LEN * 2 + 2];
 
-	GetLocalTime(&st);
+	GetLocalTime(&localTime); 
 
-	GetTimeFormat(LOCALE_USER_DEFAULT, 0, &st, NULL, szDate, MAX_STRING_LEN);
+	GetTimeFormat(LOCALE_USER_DEFAULT, 0, &localTime, NULL, szDate, MAX_STRING_LEN);
 	_tcscpy(szText, szDate);
 	_tcscat(szText, _T(" "));
-	GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, szDate, MAX_STRING_LEN);
+	GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &localTime, NULL, szDate, MAX_STRING_LEN);
 	_tcscat(szText, szDate);
 	SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)szText); //날짜와 시간을 붙여 삽입
 }
 
-VOID DoCreateStatusBar(VOID) // 상태 바 만들기
+// 상태 바 만들기 // make status bar
+VOID DoCreateStatusBar(VOID) 
 {
-	RECT rc;
-	RECT rcstatus;
+	RECT rectOfMainWnd;
+	RECT rectOfstatusBar;
 	BOOL bStatusBarVisible;
 
-	/* Check if status bar object already exists. */
+	// 상태바가 이미 존재하는 지 체크 // Check if status bar object already exists. 
 	if (Globals.hStatusBar == NULL)
 	{
-		/* Try to create the status bar */
-		Globals.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE | WS_EX_STATICEDGE, // 상태바 윈도우 만들기
-			NULL,
-			Globals.hMainWnd,
-			CMD_STATUSBAR_WND_ID);
+		// 상태바 윈도우 만들기 // Try to create the status bar 
+		Globals.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE | WS_EX_STATICEDGE, // 상태바 스타일
+			NULL, // 첫 부분에 상태 설명할 스트링 추가
+			Globals.hMainWnd, // 부모 윈도우의 핸들
+			CMD_STATUSBAR_WND_ID); // 윈도 프로시저는 이 값으로 이것이 부모 윈도우에 보내는 메시지 식별
 
-		if (Globals.hStatusBar == NULL)
-		{
+		if (Globals.hStatusBar == NULL) {
 			ShowLastError();
 			return;
 		}
 
-		/* Load the string for formatting column/row text output */
+		// 상태바 형식 로드 // Load the string for formatting column/row text output 
 		LoadString(Globals.hInstance, STRING_LINE_COLUMN, Globals.szStatusBarLineCol, MAX_PATH - 1);
 
-		/* Set the status bar for single-text output */
+		// Set the status bar for single-text output 
 		SendMessage(Globals.hStatusBar, SB_SIMPLE, (WPARAM)TRUE, (LPARAM)0);
 	}
 
-	/* Set status bar visiblity according to the settings. */
-	if (Globals.bWrapLongLines == TRUE || Globals.bShowStatusBar == FALSE)
-	{
+	// Set status bar visiblity according to the settings. 
+	if (Globals.bWrapLongLines == TRUE || Globals.bShowStatusBar == FALSE) { 
 		bStatusBarVisible = FALSE;
-		ShowWindow(Globals.hStatusBar, SW_HIDE);
+		ShowWindow(Globals.hStatusBar, SW_HIDE); // 상태바를 숨김
 	}
-	else
-	{
+	else { // 위의 설정이 아니라면 상태바 열기 // if else, show status bar
 		bStatusBarVisible = TRUE;
 		ShowWindow(Globals.hStatusBar, SW_SHOW);
-		SendMessage(Globals.hStatusBar, WM_SIZE, 0, 0);
+		SendMessage(Globals.hStatusBar, WM_SIZE, 0, 0); // 윈도우 크기가 변경되었음을 나타내는 신호를 보냄 // notify change window size
 	}
 
-	/* Set check state in show status bar item. */
-	if (bStatusBarVisible)
-	{
-		CheckMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_CHECKED);
+	// Set check state in show status bar item. 
+	if (bStatusBarVisible) {
+		CheckMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_CHECKED); // 상태바 부분에 체크를 하기
 	}
-	else
-	{
+	else {
 		CheckMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_UNCHECKED);
 	}
 
-	/* Update menu mar with the previous changes */
-	DrawMenuBar(Globals.hMainWnd); // 메뉴 바 그리기
+	// 메뉴 바 최신화 // Update menu mar with the previous changes 
+	DrawMenuBar(Globals.hMainWnd); 
 
-								   /* Sefety test is edit control exists */
-	if (Globals.hEdit != NULL)
-	{
-		/* Retrieve the sizes of the controls */
-		GetClientRect(Globals.hMainWnd, &rc);
-		GetClientRect(Globals.hStatusBar, &rcstatus);
+	// Sefety test is edit control exists 
+	if (Globals.hEdit != NULL) {
+		// 윈도우의 크기를 저장 // Retrieve the sizes of the controls 
+		GetClientRect(Globals.hMainWnd, &rectOfMainWnd); 
+		GetClientRect(Globals.hStatusBar, &rectOfstatusBar);
 
-		/* If status bar is currently visible, update dimensions of edit control */
+		// If status bar is currently visible, update dimensions of edit control 
 		if (bStatusBarVisible)
-			rc.bottom -= (rcstatus.bottom - rcstatus.top);
+			rectOfMainWnd.bottom -= (rectOfstatusBar.bottom - rectOfstatusBar.top);
 
-		/* Resize edit control to right size. */
+		// 편집창 크기 조정(상태바가 생겨나서) // Resize edit control to right size. 
 		MoveWindow(Globals.hEdit,
-			rc.left,
-			rc.top,
-			rc.right - rc.left,
-			rc.bottom - rc.top,
+			rectOfMainWnd.left,
+			rectOfMainWnd.top,
+			rectOfMainWnd.right - rectOfMainWnd.left,
+			rectOfMainWnd.bottom - rectOfMainWnd.top,
 			TRUE);
 	}
 
-	/* Update content with current row/column text */
-	DIALOG_StatusBarUpdateCaretPos(); // 상태바 위치값 최신화
+	// 상태바 위치값(라인,칼럼) 최신화 // Update content with current row/column text 
+	DIALOG_StatusBarUpdateCaretPos(); 
 }
 
-VOID DoCreateEditWindow(VOID) // 편집 창 만들기
+// 편집 창 만들기
+VOID DoCreateEditWindow(VOID) 
 {
 	DWORD dwStyle;
-	int iSize;
-	LPTSTR pTemp = NULL;
+	LPTSTR lpTextBuf = NULL;
 	BOOL bModified = FALSE;
+	int iSize = 0;
 
-	iSize = 0;
-
-	/* If the edit control already exists, try to save its content */
-	if (Globals.hEdit != NULL)
-	{
-		/* number of chars currently written into the editor. */
+	// If the edit control already exists, try to save its content 
+	if (Globals.hEdit != NULL) {
+		// number of chars currently written into the editor. 
 		iSize = GetWindowTextLength(Globals.hEdit);
-		if (iSize)
-		{
-			/* Allocates temporary buffer. */
-			pTemp = HeapAlloc(GetProcessHeap(), 0, (iSize + 1) * sizeof(TCHAR));
-			if (!pTemp)
-			{
+		if (iSize > 0) {
+			// Allocates temporary buffer. 
+			lpTextBuf = HeapAlloc(GetProcessHeap(), 0, (iSize + 1) * sizeof(TCHAR));
+			if (lpTextBuf == NULL) {
 				ShowLastError();
 				return;
 			}
-
-			/* Recover the text into the control. */
-			GetWindowText(Globals.hEdit, pTemp, iSize + 1); // 기존에 있던 내용 잠시 백업
+			// Recover the text into the control. 
+			GetWindowText(Globals.hEdit, lpTextBuf, iSize + 1); // 기존에 있던 내용 잠시 백업
 
 			if (SendMessage(Globals.hEdit, EM_GETMODIFY, 0, 0))
 				bModified = TRUE;
 		}
+		// 원래의 윈도 프로시저 저장 // Restore original window procedure 
+		SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)Globals.EditProc); // 서브클래싱: 윈 프로시저 실행중 교체
 
-		/* Restore original window procedure */
-		SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)Globals.EditProc);
-
-		/* Destroy the edit control */
-		DestroyWindow(Globals.hEdit); // 현재 에딧 컨트롤 제거
+		DestroyWindow(Globals.hEdit); // 현재 에딧 컨트롤 제거 // Destroy the edit control 
 	}
 
-	/* Update wrap status into the main menu and recover style flags */
-	if (Globals.bWrapLongLines) // 자동 줄 바꿈 설정 시
-	{
+	// 자동 줄 바꿈 설정 시 // Update wrap status into the main menu and recover style flags 
+	if (Globals.bWrapLongLines) {
 		dwStyle = EDIT_STYLE_WRAP;
 		EnableMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED); // 상태 바 메뉴 비활성화
 	}
@@ -1001,31 +987,27 @@ VOID DoCreateEditWindow(VOID) // 편집 창 만들기
 		dwStyle = EDIT_STYLE;
 		EnableMenuItem(Globals.hMenu, CMD_STATUSBAR, MF_BYCOMMAND | MF_ENABLED);
 	}
+	DrawMenuBar(Globals.hMainWnd); // 메뉴 바 그리기 // Update previous changes 
 
-	/* Update previous changes */
-	DrawMenuBar(Globals.hMainWnd); // 메뉴 바 그리기
-
-								   /* Create the new edit control */
-	Globals.hEdit = CreateWindowEx(WS_EX_CLIENTEDGE, // 새 에딧 컨트롤 할당
-		EDIT_CLASS,
-		NULL,
-		dwStyle,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		Globals.hMainWnd,
-		NULL,
-		Globals.hInstance,
+	// 새 에딧 컨트롤 할당 // Create the new edit control 
+	Globals.hEdit = CreateWindowEx(
+		WS_EX_CLIENTEDGE, // 확장 스타일
+		EDIT_CLASS, // 클래스 이름
+		NULL, // 타이틀바 이름
+		dwStyle, // 기본 스타일
+		CW_USEDEFAULT, // 윈도우가 나타날 x좌표
+		CW_USEDEFAULT, // y좌표
+		CW_USEDEFAULT, // 넓이 
+		CW_USEDEFAULT, // 높이
+		Globals.hMainWnd, // 부모윈도우 핸들
+		NULL, // 메뉴 핸들
+		Globals.hInstance, // 프로세스의 핸들
 		NULL);
 
-	if (Globals.hEdit == NULL)
-	{
-		if (pTemp)
-		{
-			HeapFree(GetProcessHeap(), 0, pTemp);
+	if (Globals.hEdit == NULL) {
+		if (lpTextBuf) {
+			HeapFree(GetProcessHeap(), 0, lpTextBuf);
 		}
-
 		ShowLastError();
 		return;
 	}
@@ -1033,62 +1015,61 @@ VOID DoCreateEditWindow(VOID) // 편집 창 만들기
 	SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, FALSE);
 	SendMessage(Globals.hEdit, EM_LIMITTEXT, 0, 0);
 
-	/* If some text was previously saved, restore it. */
-	if (iSize != 0)
-	{
-		SetWindowText(Globals.hEdit, pTemp); // 임시저장한 텍스트 내용을 다시 만든 에딧창에 적용
-		HeapFree(GetProcessHeap(), 0, pTemp);
+	// 텍스트를 다시 복구 // If some text was previously saved, restore it. 
+	if (iSize != 0) {
+		SetWindowText(Globals.hEdit, lpTextBuf); // 임시저장한 텍스트 내용을 다시 만든 에딧창에 적용
+		HeapFree(GetProcessHeap(), 0, lpTextBuf);
 
 		if (bModified)
 			SendMessage(Globals.hEdit, EM_SETMODIFY, TRUE, 0);
 	}
 
-	/* Sub-class a new window callback for row/column detection. */
-	Globals.EditProc = (WNDPROC)SetWindowLongPtr(Globals.hEdit,
+	// Sub-class a new window callback for row/column detection. 
+	Globals.EditProc = (WNDPROC)SetWindowLongPtr(
+		Globals.hEdit,
 		GWLP_WNDPROC,
 		(LONG_PTR)EDIT_WndProc);
 
 
 	DoCreateStatusBar(); // 상태바 만들기
 
-						 /* Finally shows new edit control and set focus into it. */
+	// Finally shows new edit control and set focus into it. 
 	ShowWindow(Globals.hEdit, SW_SHOW);
 	SetFocus(Globals.hEdit);
 }
 
-VOID DIALOG_EditWrap(VOID) // 자동 줄 바꿈 설정 및 해제
+// 자동 줄 바꿈 설정 및 해제 // set / unset automatic line feed
+VOID DIALOG_EditWrap(VOID) 
 {
 	Globals.bWrapLongLines = !Globals.bWrapLongLines; // 자동 줄 바꿈 toggle 
 
-	if (Globals.bWrapLongLines)
-	{
-		EnableMenuItem(Globals.hMenu, CMD_GOTO, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED); // "이동" 버튼을 비활성화
+	if (Globals.bWrapLongLines) { // "이동" 버튼을 비활성화 // disable "move" button
+		EnableMenuItem(Globals.hMenu, CMD_GOTO, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED); 
 	}
-	else
-	{
+	else {
 		EnableMenuItem(Globals.hMenu, CMD_GOTO, MF_BYCOMMAND | MF_ENABLED);
 	}
 
 	DoCreateEditWindow(); // 에딧 창을 다시 만듬(상태창을 만들고 없애기 위해서 에딧창도 다시 만듬)
 }
 
-VOID DIALOG_SelectFont(VOID) // 폰트 선택하기
+// 폰트 선택하기 // select font
+VOID DIALOG_SelectFont(VOID) 
 {
-	CHOOSEFONT cf;
-	LOGFONT lf = Globals.lfFont;
+	CHOOSEFONT selectFont;
+	LOGFONT fontAttr = Globals.lfFont; // 폰트를 만들기 위한 정보들이 담긴 구조체
 
-	ZeroMemory(&cf, sizeof(cf));
-	cf.lStructSize = sizeof(cf);
-	cf.hwndOwner = Globals.hMainWnd;
-	cf.lpLogFont = &lf;
-	cf.Flags = CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT | CF_NOVERTFONTS;
+	ZeroMemory(&selectFont, sizeof(selectFont));
+	selectFont.lStructSize = sizeof(selectFont);
+	selectFont.hwndOwner = Globals.hMainWnd;
+	selectFont.lpLogFont = &fontAttr;
+	selectFont.Flags = CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT | CF_NOVERTFONTS;
 
-	if (ChooseFont(&cf)) // 폰트 선택 다이얼로그
-	{
+	if (ChooseFont(&selectFont)) { // 폰트 선택 다이얼로그 띄움 // print dialog
 		HFONT currfont = Globals.hFont;
 
-		Globals.hFont = CreateFontIndirect(&lf);
-		Globals.lfFont = lf;
+		Globals.hFont = CreateFontIndirect(&fontAttr);
+		Globals.lfFont = fontAttr;
 		SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, (LPARAM)TRUE); // 폰트 설정
 		if (currfont != NULL)
 			DeleteObject(currfont);
@@ -1097,7 +1078,8 @@ VOID DIALOG_SelectFont(VOID) // 폰트 선택하기
 
 typedef HWND(WINAPI *FINDPROC)(LPFINDREPLACE lpfr);
 
-static VOID DIALOG_SearchDialog(FINDPROC pfnProc) // 검색 다이얼로그
+// 검색 다이얼로그 // search dialog
+static VOID DIALOG_SearchDialog(FINDPROC pfnProc) 
 {
 	ZeroMemory(&Globals.find, sizeof(Globals.find));
 	Globals.find.lStructSize = sizeof(Globals.find);
@@ -1109,19 +1091,21 @@ static VOID DIALOG_SearchDialog(FINDPROC pfnProc) // 검색 다이얼로그
 	Globals.find.wReplaceWithLen = ARRAY_SIZE(Globals.szReplaceText);
 	Globals.find.Flags = FR_DOWN;
 
-	/* We only need to create the modal FindReplace dialog which will */
-	/* notify us of incoming events using hMainWnd Window Messages    */
+	// We only need to create the modal FindReplace dialog which will 
+	// notify us of incoming events using hMainWnd Window Messages    
 
 	Globals.hFindReplaceDlg = pfnProc(&Globals.find);
 	assert(Globals.hFindReplaceDlg != 0);
 }
 
-VOID DIALOG_Search(VOID) // 검색
+// 검색 // search 
+VOID DIALOG_Search(VOID) 
 {
 	DIALOG_SearchDialog(FindText);
 }
 
-VOID DIALOG_SearchNext(VOID) // 다음 찾기
+// 다음 찾기 // search next
+VOID DIALOG_SearchNext(VOID) 
 {
 	if (Globals.find.lpstrFindWhat != NULL)
 		NOTEPAD_FindNext(&Globals.find, FALSE, TRUE);
@@ -1129,80 +1113,79 @@ VOID DIALOG_SearchNext(VOID) // 다음 찾기
 		DIALOG_Search();
 }
 
-VOID DIALOG_Replace(VOID) // 바꾸기
+// 바꾸기 // replace
+VOID DIALOG_Replace(VOID) 
 {
 	DIALOG_SearchDialog(ReplaceText);
 }
 
+// "이동" 다이얼로그 처리(콜백함수) 
 static INT_PTR
 CALLBACK
-DIALOG_GoTo_DialogProc(HWND hwndDialog, UINT uMsg, WPARAM wParam, LPARAM lParam) // "이동" 다이얼로그 처리(콜백함수)
+DIALOG_GoTo_DialogProc(HWND hwndDialog, UINT uMsg, WPARAM wParam, LPARAM nLine) 
 {
 	BOOL bResult = FALSE;
 	HWND hTextBox;
 	TCHAR szText[32];
 
 	switch (uMsg) {
-	case WM_INITDIALOG:
-		hTextBox = GetDlgItem(hwndDialog, ID_LINENUMBER);
-		_sntprintf(szText, ARRAY_SIZE(szText), _T("%ld"), lParam);
+	case WM_INITDIALOG: // when dialog initialize
+		//인수: 찾을 핸들이 포함된 대화상자 / 찾을 핸들의 식별자.
+		//반환 : 컨트롤 윈도우의 핸들
+		hTextBox = GetDlgItem(hwndDialog, ID_LINENUMBER); 
+		_sntprintf(szText, ARRAY_SIZE(szText), _T("%ld"), nLine); 
 		SetWindowText(hTextBox, szText);
 		break;
-	case WM_COMMAND:
-		if (HIWORD(wParam) == BN_CLICKED) // 마우스 버튼 클릭 시
-		{
-			if (LOWORD(wParam) == IDOK) // OK 버튼 누를 때
-			{
+	case WM_COMMAND: 
+		if (HIWORD(wParam) == BN_CLICKED) { // 마우스 버튼 클릭 시
+			if (LOWORD(wParam) == IDOK) { // OK 버튼 누를 때
 				hTextBox = GetDlgItem(hwndDialog, ID_LINENUMBER); // 이동할 라인 입력창에 대한 핸들을 받음
 				GetWindowText(hTextBox, szText, ARRAY_SIZE(szText));
 				EndDialog(hwndDialog, _ttoi(szText)); // 다이얼로그 종료 (szText값을 정수로 변환)
 				bResult = TRUE;
 			}
-			else if (LOWORD(wParam) == IDCANCEL) // 취소 버튼 누를 때
-			{
+			else if (LOWORD(wParam) == IDCANCEL) { // 취소 버튼 누를 때
 				EndDialog(hwndDialog, 0);
 				bResult = TRUE;
 			}
 		}
 		break;
 	}
-
 	return bResult;
 }
 
-VOID DIALOG_GoTo(VOID) // "이동" 다이얼로그
+// "이동" 다이얼로그 
+VOID DIALOG_GoTo(VOID) 
 {
 	INT_PTR nLine;
 	LPTSTR pszText;
-	int nLength, i;
 	DWORD dwStart, dwEnd;
+	int nLength, i;
 
 	nLength = GetWindowTextLength(Globals.hEdit);
 	pszText = (LPTSTR)HeapAlloc(GetProcessHeap(), 0, (nLength + 1) * sizeof(*pszText));
-	if (!pszText)
+	if (pszText == NULL)
 		return;
 
-	/* Retrieve current text */
+	// Retrieve current text 
 	GetWindowText(Globals.hEdit, pszText, nLength + 1);
 	SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwEnd);
 
 	nLine = 1;
-	for (i = 0; (i < (int)dwStart) && pszText[i]; i++)
-	{
+	for (i = 0; (i < (int)dwStart) && pszText[i]; i++) {
 		if (pszText[i] == '\n')
 			nLine++;
 	}
 
-	nLine = DialogBoxParam(Globals.hInstance,
-		MAKEINTRESOURCE(DIALOG_GOTO),
-		Globals.hMainWnd,
+	nLine = DialogBoxParam( // 모달 폼(다이얼로그)을 생성 시
+		Globals.hInstance, // 실행 파일 대화 상자 템플릿을 포함하는 모듈의 인스턴스 
+		MAKEINTRESOURCE(DIALOG_GOTO), // 숫자로 정의된 상수 = > 문자열 형태 
+		Globals.hMainWnd, // 대화상자 소유한 창을 식별
 		DIALOG_GoTo_DialogProc, // 이동 다이얼로그
 		nLine);
 
-	if (nLine >= 1)
-	{
-		for (i = 0; pszText[i] && (nLine > 1) && (i < nLength - 1); i++)
-		{
+	if (nLine >= 1) {
+		for (i = 0; pszText[i] && (nLine > 1) && (i < nLength - 1); i++) {
 			if (pszText[i] == '\n')
 				nLine--;
 		}
@@ -1212,11 +1195,12 @@ VOID DIALOG_GoTo(VOID) // "이동" 다이얼로그
 	HeapFree(GetProcessHeap(), 0, pszText);
 }
 
-VOID DIALOG_StatusBarUpdateCaretPos(VOID) // 상태바 위치 최신화
+// 상태바 위치 최신화
+VOID DIALOG_StatusBarUpdateCaretPos(VOID) 
 {
-	int line, col;
 	TCHAR buff[MAX_PATH];
 	DWORD dwStart, dwSize;
+	int line, col;
 
 	SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwSize);
 	line = SendMessage(Globals.hEdit, EM_LINEFROMCHAR, (WPARAM)dwStart, 0);
@@ -1226,7 +1210,8 @@ VOID DIALOG_StatusBarUpdateCaretPos(VOID) // 상태바 위치 최신화
 	SendMessage(Globals.hStatusBar, SB_SETTEXT, SB_SIMPLEID, (LPARAM)buff);
 }
 
-VOID DIALOG_ViewStatusBar(VOID) // 상태바 보기 및 숨기기
+// 상태바 보기 및 숨기기
+VOID DIALOG_ViewStatusBar(VOID) 
 {
 	Globals.bShowStatusBar = !Globals.bShowStatusBar;
 	DoCreateStatusBar();
