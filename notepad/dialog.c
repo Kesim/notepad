@@ -1091,8 +1091,8 @@ static VOID DIALOG_SearchDialog(FINDPROC pfnProc)
 	Globals.find.wReplaceWithLen = ARRAY_SIZE(Globals.szReplaceText);
 	Globals.find.Flags = FR_DOWN;
 
-	// We only need to create the modal FindReplace dialog which will 
-	// notify us of incoming events using hMainWnd Window Messages    
+	/* We only need to create the modal FindReplace dialog which will 
+	notify us of incoming events using hMainWnd Window Messages */    
 
 	Globals.hFindReplaceDlg = pfnProc(&Globals.find);
 	assert(Globals.hFindReplaceDlg != 0);
@@ -1154,26 +1154,26 @@ DIALOG_GoTo_DialogProc(HWND hwndDialog, UINT uMsg, WPARAM wParam, LPARAM nLine)
 	return bResult;
 }
 
-// "이동" 다이얼로그 
+// "이동" 다이얼로그 // goto Dialog
 VOID DIALOG_GoTo(VOID) 
 {
 	INT_PTR nLine;
-	LPTSTR pszText;
+	LPTSTR textInEditCtrl;
 	DWORD dwStart, dwEnd;
 	int nLength, i;
 
 	nLength = GetWindowTextLength(Globals.hEdit);
-	pszText = (LPTSTR)HeapAlloc(GetProcessHeap(), 0, (nLength + 1) * sizeof(*pszText));
-	if (pszText == NULL)
+	textInEditCtrl = (LPTSTR)HeapAlloc(GetProcessHeap(), 0, (nLength + 1) * sizeof(*textInEditCtrl));
+	if (textInEditCtrl == NULL)
 		return;
 
 	// Retrieve current text 
-	GetWindowText(Globals.hEdit, pszText, nLength + 1);
+	GetWindowText(Globals.hEdit, textInEditCtrl, nLength + 1);
 	SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwEnd);
 
 	nLine = 1;
-	for (i = 0; (i < (int)dwStart) && pszText[i]; i++) {
-		if (pszText[i] == '\n')
+	for (i = 0; (i < (int)dwStart) && textInEditCtrl[i]; i++) {
+		if (textInEditCtrl[i] == '\n')
 			nLine++;
 	}
 
@@ -1185,20 +1185,20 @@ VOID DIALOG_GoTo(VOID)
 		nLine);
 
 	if (nLine >= 1) {
-		for (i = 0; pszText[i] && (nLine > 1) && (i < nLength - 1); i++) {
-			if (pszText[i] == '\n')
+		for (i = 0; textInEditCtrl[i] && (nLine > 1) && (i < nLength - 1); i++) {
+			if (textInEditCtrl[i] == '\n')
 				nLine--;
 		}
 		SendMessage(Globals.hEdit, EM_SETSEL, i, i);
 		SendMessage(Globals.hEdit, EM_SCROLLCARET, 0, 0); // 스크롤을 위치에 맞게 이동
 	}
-	HeapFree(GetProcessHeap(), 0, pszText);
+	HeapFree(GetProcessHeap(), 0, textInEditCtrl);
 }
 
-// 상태바 위치 최신화
+// 상태바 위치 최신화 // update location of status bar
 VOID DIALOG_StatusBarUpdateCaretPos(VOID) 
 {
-	TCHAR buff[MAX_PATH];
+	TCHAR locOfstatusBar[MAX_PATH];
 	DWORD dwStart, dwSize;
 	int line, col;
 
@@ -1206,23 +1206,25 @@ VOID DIALOG_StatusBarUpdateCaretPos(VOID)
 	line = SendMessage(Globals.hEdit, EM_LINEFROMCHAR, (WPARAM)dwStart, 0);
 	col = dwStart - SendMessage(Globals.hEdit, EM_LINEINDEX, (WPARAM)line, 0); // 현재 칼럼 수
 
-	_stprintf(buff, Globals.szStatusBarLineCol, line + 1, col + 1);
-	SendMessage(Globals.hStatusBar, SB_SETTEXT, SB_SIMPLEID, (LPARAM)buff);
+	_stprintf(locOfstatusBar, Globals.szStatusBarLineCol, line + 1, col + 1);
+	SendMessage(Globals.hStatusBar, SB_SETTEXT, SB_SIMPLEID, (LPARAM)locOfstatusBar);
 }
 
-// 상태바 보기 및 숨기기
+// 상태바 보기 및 숨기기 // show/hide statusBar
 VOID DIALOG_ViewStatusBar(VOID) 
 {
 	Globals.bShowStatusBar = !Globals.bShowStatusBar;
 	DoCreateStatusBar();
 }
 
-VOID DIALOG_HelpContents(VOID) // 도움말
+// 도움말 // help
+VOID DIALOG_HelpContents(VOID) 
 {
 	WinHelp(Globals.hMainWnd, helpfile, HELP_INDEX, 0);
 }
 
-VOID DIALOG_HelpAboutNotepad(VOID) // 메모장 정보
+// 메모장 정보 // about notepad
+VOID DIALOG_HelpAboutNotepad(VOID) 
 {
 	TCHAR szNotepad[MAX_STRING_LEN];
 	HICON notepadIcon = LoadIcon(Globals.hInstance, MAKEINTRESOURCE(IDI_NPICON));
@@ -1232,9 +1234,10 @@ VOID DIALOG_HelpAboutNotepad(VOID) // 메모장 정보
 	DeleteObject(notepadIcon);
 }
 
+// 개발자 정보 // about developer
 INT_PTR
 CALLBACK
-AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) // 개발자 정보(작동 안됨)
+AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) 
 {
 	HWND hLicenseEditWnd;
 	TCHAR *strLicense;
@@ -1245,7 +1248,8 @@ AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) // 개발자
 
 		hLicenseEditWnd = GetDlgItem(hDlg, IDC_LICENSE);
 
-		/* 0x1000 should be enough */
+		//todo : understand this annotation
+		// 0x1000 should be enough 
 		strLicense = (TCHAR *)_alloca(0x1000);
 		LoadString(GetModuleHandle(NULL), STRING_LICENSE, strLicense, 0x1000);
 
@@ -1267,11 +1271,8 @@ AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) // 개발자
 	return 0;
 }
 
-/***********************************************************************
-*
-*           DIALOG_FilePageSetup
-*/
-VOID DIALOG_FilePageSetup(void) // 페이지 설정
+// 페이지 설정 // page setup
+VOID DIALOG_FilePageSetup(void) 
 {
 	PAGESETUPDLG page; // 페이지 정보를 담은 구조체
 
@@ -1293,12 +1294,8 @@ VOID DIALOG_FilePageSetup(void) // 페이지 설정
 	Globals.lMargins = page.rtMargin; // 여백 정보 할당
 }
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-*
-*           DIALOG_PAGESETUP_Hook
-*/
-
-static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) // 페이지 설정 다이얼로그 (콜백함수)
+// 페이지 설정 다이얼로그 (콜백함수) // page setup dialog
+static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam) 
 {
 	switch (msg)
 	{
@@ -1308,18 +1305,18 @@ static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wPara
 			switch (LOWORD(wParam))
 			{
 			case IDOK:
-				/* save user input and close dialog */
+				// save user input and close dialog 
 				GetDlgItemText(hDlg, 0x141, Globals.szHeader, ARRAY_SIZE(Globals.szHeader)); // 푸터와, 헤더값 설정
 				GetDlgItemText(hDlg, 0x143, Globals.szFooter, ARRAY_SIZE(Globals.szFooter));
 				return FALSE;
 
 			case IDCANCEL:
-				/* discard user input and close dialog */
+				// discard user input and close dialog 
 				return FALSE;
 
 			case IDHELP:
 			{
-				/* FIXME: Bring this to work */
+				// FIXME: Bring this to work 
 				static const TCHAR sorry[] = _T("Sorry, no help available");
 				static const TCHAR help[] = _T("Help");
 				MessageBox(Globals.hMainWnd, sorry, help, MB_ICONEXCLAMATION);
@@ -1333,7 +1330,7 @@ static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wPara
 		break;
 
 	case WM_INITDIALOG:
-		/* fetch last user input prior to display dialog */
+		// fetch last user input prior to display dialog 
 		SetDlgItemText(hDlg, 0x141, Globals.szHeader); // 푸터와 헤더값 받아오기
 		SetDlgItemText(hDlg, 0x143, Globals.szFooter);
 		break;
