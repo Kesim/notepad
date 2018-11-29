@@ -1384,7 +1384,7 @@ static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wPara
 		break;
 
 	case WM_INITDIALOG:
-		// fetch last user input prior to display dialog 
+		//  fetch last user input prior to display dialog 
 		SetDlgItemText(hDlg, 0x141, Globals.szHeader); // 푸터와 헤더값 받아오기
 		SetDlgItemText(hDlg, 0x143, Globals.szFooter);
 		break;
