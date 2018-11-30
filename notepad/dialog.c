@@ -20,15 +20,16 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-/* Dialog.c 분석사항
--분석자: 심규림
--분석날짜: 2018.10.25~ 2018.10.30
--분석 내용: Dialog.h는 메모장에서 각 메뉴 안에 항목들을 구현해 놓은 소스파일입니다.
--구현 기능: -파일 열기 -파일 저장 -프린트하기 -메모장닫기
--실행취소 -잘라내기 -붙이기 -삭제 -모두선택 -시간날짜삽입
--하단 상태창띄우기 -폰트설정 -찾기/바꾸기
--도움말 -페이지 설정
+/* Dialog.c Modified details
+-modifier: Shim Gyurim
+-modify period : 18.10.20 ~ 18.12.03
+-analyzed details: In Dialog.h, each functionality of menu was implemented.
+-implemented functionality: -open -save -print -close
+-undo -cut -paste -delete -select all -insert date & time
+-show/hide status bar -set font -search and replace
+-help -page setup
 */
+
 #include "notepad.h"
 #include <assert.h>
 #include <commctrl.h>
@@ -36,6 +37,8 @@
 
 //zy
 #pragma comment(lib,"comctl32.lib") // Can call function in library
+#pragma warning(disable:4996)
+#pragma warning(disable:4100)
 
 LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam); // main.c 에 구현되어 있음. DoCreateEditWindow 내부에서 사용.
 
@@ -117,7 +120,7 @@ int DIALOG_StringMsgBox(HWND hParent, int formatId, LPCTSTR szString, DWORD dwFl
 
 	// formatId에 해당하는 메시지를 리소스로 부터 로드 // Load and format szMessage 
 	LoadString(Globals.hInstance, formatId, szResource, ARRAY_SIZE(szResource)); 
-	_sntprintf(szMessage, ARRAY_SIZE(szMessage), szResource, szString);
+	_sntprintf(szMessage, ARRAY_SIZE(szMessage), szResource, szString); // todo : 추가 문제 해결 필요
 
 	if ((dwFlags & MB_ICONMASK) == MB_ICONEXCLAMATION) // 느낌표(exclamation)가 있는 다이얼로그는 에러 표시시 // Load szCaption
 		LoadString(Globals.hInstance, STRING_ERROR, szResource, ARRAY_SIZE(szResource));
@@ -162,7 +165,7 @@ static int AlertFileNotSaved(LPCTSTR szFileName)
 static void AlertPrintError(void) 
 {
 	TCHAR szUntitled[MAX_STRING_LEN];
-	TCHAR filename;
+	TCHAR *filename;
 
 	if (Globals.szFileName[0] == '\0') 
 	{
@@ -429,7 +432,7 @@ VOID DoOpenFile(LPCTSTR szFileName)
 		return;
 	}
 
-	if (ReadText(hFile, (LPWSTR *)&lpTextBuf, &dwTextLen, &Globals.encFile, &Globals.iEoln) == FALSE) 
+	if (ReadText(hFile, (LPWSTR *)&lpTextBuf, &dwTextLen, (int*)&Globals.encFile, &Globals.iEoln) == FALSE) 
 	{ // 파일에서 pszText로 내용을 읽어오기
 		ShowLastError();
 		if (hFile != INVALID_HANDLE_VALUE)
@@ -462,7 +465,7 @@ VOID DoOpenFile(LPCTSTR szFileName)
 
 	SetFileName(szFileName);
 	UpdateWindowCaption(TRUE);
-	NOTEPAD_EnableSearchMenu(); // 찾기 메뉴 활성화
+	NOTEPAD_EnableSearchMenu(); //  찾기 메뉴 활성화
 	
 	if (hFile != INVALID_HANDLE_VALUE)
 		CloseHandle(hFile);
@@ -651,8 +654,10 @@ VOID DIALOG_FilePrint(VOID)
 	DWORD size;
 	LPTSTR pTemp;
 	RECT rcPrintRect;
+	const int defaultMargins = 300;
 	int border;
 	int xLeft, yTop, pagecount, dopage, copycount;
+	int useDevModeCopies;
 	unsigned int i;
 
 	// Get a small font and print some header info on each page 
@@ -688,7 +693,8 @@ VOID DIALOG_FilePrint(VOID)
 	printer.nToPage = (WORD)-1;
 	printer.nMaxPage = (WORD)-1;
 
-	printer.nCopies = (WORD)PD_USEDEVMODECOPIES;
+	useDevModeCopies = PD_USEDEVMODECOPIES;
+	printer.nCopies = (WORD)useDevModeCopies;
 
 	printer.hDevMode = Globals.hDevMode; // devmode 구조체를 가지는 전역 메모리 핸들
 	printer.hDevNames = Globals.hDevNames; // denames 구조체를 가지는 전역 메모리 핸들
@@ -802,7 +808,7 @@ VOID DIALOG_FilePrint(VOID)
 			}
 
 			// 머릿말이 끝나고 메인 텍스트 부분이 나타남 // The starting point for the main text 
-			xLeft = 0;
+			xLeft = defaultMargins;
 			yTop = border + tm.tmHeight * 4; 
 
 			SelectObject(printer.hDC, old_font);
@@ -811,7 +817,7 @@ VOID DIALOG_FilePrint(VOID)
 			do {
 				if (pTemp[i] == '\n') 
 				{ // 줄 넘기기
-					xLeft = 0; // todo : 일정한 마진 값을 설정
+					xLeft = defaultMargins; // todo : 일정한 마진 값을 설정
 					yTop += tm.tmHeight;
 				}
 				else if (pTemp[i] != '\r') 
@@ -824,8 +830,8 @@ VOID DIALOG_FilePrint(VOID)
 					xLeft += szMetric.cx;
 
 					// Insert a line break if the current line does not fit into the printing area 
-					if (xLeft > rcPrintRect.right) { // 여백을 초과 시 다음줄로
-						xLeft = 0;
+					if ( (xLeft + defaultMargins) > rcPrintRect.right) { // 여백을 초과 시 다음줄로
+						xLeft = defaultMargins;
 						yTop = yTop + tm.tmHeight;
 					}
 				}
@@ -1263,7 +1269,7 @@ VOID DIALOG_StatusBarUpdateCaretPos(VOID)
 	_stprintf(locOfstatusBar, Globals.szStatusBarLineCol, line + 1, col + 1);
 	SendMessage(Globals.hStatusBar, SB_SETTEXT, SB_SIMPLEID, (LPARAM)locOfstatusBar);
 }
-
+//
 // 상태바 보기 및 숨기기 // show/hide statusBar
 VOID DIALOG_ViewStatusBar(VOID) 
 {
