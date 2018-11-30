@@ -463,7 +463,7 @@ VOID DoOpenFile(LPCTSTR szFileName)
 
 	SetFileName(szFileName);
 	UpdateWindowCaption(TRUE);
-	NOTEPAD_EnableSearchMenu(); // 찾기 메뉴 활성화
+	NOTEPAD_EnableSearchMenu(); //  찾기 메뉴 활성화
 	
 	if (hFile != INVALID_HANDLE_VALUE)
 		CloseHandle(hFile);
