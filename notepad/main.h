@@ -56,7 +56,7 @@ typedef enum
 
 typedef struct
 {
-    HINSTANCE hInstance;
+    HINSTANCE hInstance; // 현재 실행되는 인스턴스에 관한 정보 // info about executing instance 
     HWND hMainWnd;
     HWND hFindReplaceDlg;
     HWND hEdit;
