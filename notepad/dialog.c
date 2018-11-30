@@ -37,6 +37,8 @@
 
 //zy
 #pragma comment(lib,"comctl32.lib") // Can call function in library
+#pragma warning(disable:4996)
+#pragma warning(disable:4100)
 
 LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam); // main.c 에 구현되어 있음. DoCreateEditWindow 내부에서 사용.
 
@@ -118,7 +120,7 @@ int DIALOG_StringMsgBox(HWND hParent, int formatId, LPCTSTR szString, DWORD dwFl
 
 	// formatId에 해당하는 메시지를 리소스로 부터 로드 // Load and format szMessage 
 	LoadString(Globals.hInstance, formatId, szResource, ARRAY_SIZE(szResource)); 
-	_sntprintf(szMessage, ARRAY_SIZE(szMessage), szResource, szString);
+	_sntprintf(szMessage, ARRAY_SIZE(szMessage), szResource, szString); // todo : 추가 문제 해결 필요
 
 	if ((dwFlags & MB_ICONMASK) == MB_ICONEXCLAMATION) // 느낌표(exclamation)가 있는 다이얼로그는 에러 표시시 // Load szCaption
 		LoadString(Globals.hInstance, STRING_ERROR, szResource, ARRAY_SIZE(szResource));
@@ -163,7 +165,7 @@ static int AlertFileNotSaved(LPCTSTR szFileName)
 static void AlertPrintError(void) 
 {
 	TCHAR szUntitled[MAX_STRING_LEN];
-	TCHAR filename;
+	TCHAR *filename;
 
 	if (Globals.szFileName[0] == '\0') 
 	{
@@ -430,7 +432,7 @@ VOID DoOpenFile(LPCTSTR szFileName)
 		return;
 	}
 
-	if (ReadText(hFile, (LPWSTR *)&lpTextBuf, &dwTextLen, &Globals.encFile, &Globals.iEoln) == FALSE) 
+	if (ReadText(hFile, (LPWSTR *)&lpTextBuf, &dwTextLen, (int*)&Globals.encFile, &Globals.iEoln) == FALSE) 
 	{ // 파일에서 pszText로 내용을 읽어오기
 		ShowLastError();
 		if (hFile != INVALID_HANDLE_VALUE)
@@ -652,9 +654,10 @@ VOID DIALOG_FilePrint(VOID)
 	DWORD size;
 	LPTSTR pTemp;
 	RECT rcPrintRect;
+	const int defaultMargins = 300;
 	int border;
 	int xLeft, yTop, pagecount, dopage, copycount;
-	const int defaultMargins = 300;
+	int useDevModeCopies;
 	unsigned int i;
 
 	// Get a small font and print some header info on each page 
@@ -690,7 +693,8 @@ VOID DIALOG_FilePrint(VOID)
 	printer.nToPage = (WORD)-1;
 	printer.nMaxPage = (WORD)-1;
 
-	printer.nCopies = (WORD)PD_USEDEVMODECOPIES;
+	useDevModeCopies = PD_USEDEVMODECOPIES;
+	printer.nCopies = (WORD)useDevModeCopies;
 
 	printer.hDevMode = Globals.hDevMode; // devmode 구조체를 가지는 전역 메모리 핸들
 	printer.hDevNames = Globals.hDevNames; // denames 구조체를 가지는 전역 메모리 핸들
@@ -1265,7 +1269,7 @@ VOID DIALOG_StatusBarUpdateCaretPos(VOID)
 	_stprintf(locOfstatusBar, Globals.szStatusBarLineCol, line + 1, col + 1);
 	SendMessage(Globals.hStatusBar, SB_SETTEXT, SB_SIMPLEID, (LPARAM)locOfstatusBar);
 }
-
+//
 // 상태바 보기 및 숨기기 // show/hide statusBar
 VOID DIALOG_ViewStatusBar(VOID) 
 {

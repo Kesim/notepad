@@ -23,7 +23,6 @@
 #include "notepad.h"
 #include <winreg.h>
 
-#define _CRT_SECURE_NO_WARNINGS
 #pragma warning(disable:4996)
  /*
   * _T는 유니코드 환경일 때 문자열을 유니코드로 변환함.
