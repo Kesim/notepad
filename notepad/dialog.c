@@ -20,14 +20,14 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-/* Dialog.c 분석사항
--분석자: 심규림
--분석날짜: 2018.10.25~ 2018.10.30
--분석 내용: Dialog.h는 메모장에서 각 메뉴 안에 항목들을 구현해 놓은 소스파일입니다.
--구현 기능: -파일 열기 -파일 저장 -프린트하기 -메모장닫기
--실행취소 -잘라내기 -붙이기 -삭제 -모두선택 -시간날짜삽입
--하단 상태창띄우기 -폰트설정 -찾기/바꾸기
--도움말 -페이지 설정
+/* Dialog.c Modified details
+-modifier: Shim Gyurim
+-modify period : 18.10.20 ~ 18.12.03
+-analyzed details: In Dialog.h, each functionality of menu was implemented.
+-implemented functionality: -open -save -print -close
+-undo -cut -paste -delete -select all -insert date & time
+-show/hide status bar -set font -search and replace
+-help -page setup
 */
 
 #include "notepad.h"
@@ -654,7 +654,7 @@ VOID DIALOG_FilePrint(VOID)
 	RECT rcPrintRect;
 	int border;
 	int xLeft, yTop, pagecount, dopage, copycount;
-	const int defaultMargin = 300;
+	const int defaultMargins = 300;
 	unsigned int i;
 
 	// Get a small font and print some header info on each page 
@@ -804,7 +804,7 @@ VOID DIALOG_FilePrint(VOID)
 			}
 
 			// 머릿말이 끝나고 메인 텍스트 부분이 나타남 // The starting point for the main text 
-			xLeft = defaultMargin;
+			xLeft = defaultMargins;
 			yTop = border + tm.tmHeight * 4; 
 
 			SelectObject(printer.hDC, old_font);
@@ -813,7 +813,7 @@ VOID DIALOG_FilePrint(VOID)
 			do {
 				if (pTemp[i] == '\n') 
 				{ // 줄 넘기기
-					xLeft = defaultMargin; // todo : 일정한 마진 값을 설정
+					xLeft = defaultMargins; // todo : 일정한 마진 값을 설정
 					yTop += tm.tmHeight;
 				}
 				else if (pTemp[i] != '\r') 
@@ -826,8 +826,8 @@ VOID DIALOG_FilePrint(VOID)
 					xLeft += szMetric.cx;
 
 					// Insert a line break if the current line does not fit into the printing area 
-					if ( (xLeft + defaultMargin) > rcPrintRect.right) { // 여백을 초과 시 다음줄로
-						xLeft = defaultMargin;
+					if ( (xLeft + defaultMargins) > rcPrintRect.right) { // 여백을 초과 시 다음줄로
+						xLeft = defaultMargins;
 						yTop = yTop + tm.tmHeight;
 					}
 				}
