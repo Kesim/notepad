@@ -578,6 +578,14 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
 
     return TRUE;
 }
+/*
+	Initiate Global variable
+*/
+void InitGobal(HINSTANCE hInstance)
+{
+	ZeroMemory(&Globals, sizeof(Globals));
+	Globals.hInstance = hInstance;
+}
 
 /***********************************************************************
  *
@@ -609,8 +617,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
 
     aFINDMSGSTRING = (ATOM)RegisterWindowMessage(FINDMSGSTRING);
 
-    ZeroMemory(&Globals, sizeof(Globals));
-    Globals.hInstance = hInstance;
+	InitGobal(hInstance);
     NOTEPAD_LoadSettingsFromRegistry();
 
     ZeroMemory(&wndclass, sizeof(wndclass));
