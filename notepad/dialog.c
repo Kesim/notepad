@@ -653,6 +653,7 @@ VOID DIALOG_FilePrint(VOID)
 	RECT rcPrintRect;
 	int border;
 	int xLeft, yTop, pagecount, dopage, copycount;
+	const int defaultMargin = 300;
 	unsigned int i;
 
 	// Get a small font and print some header info on each page 
@@ -802,7 +803,7 @@ VOID DIALOG_FilePrint(VOID)
 			}
 
 			// 머릿말이 끝나고 메인 텍스트 부분이 나타남 // The starting point for the main text 
-			xLeft = 0;
+			xLeft = defaultMargin;
 			yTop = border + tm.tmHeight * 4; 
 
 			SelectObject(printer.hDC, old_font);
@@ -811,7 +812,7 @@ VOID DIALOG_FilePrint(VOID)
 			do {
 				if (pTemp[i] == '\n') 
 				{ // 줄 넘기기
-					xLeft = 0; // todo : 일정한 마진 값을 설정
+					xLeft = defaultMargin; // todo : 일정한 마진 값을 설정
 					yTop += tm.tmHeight;
 				}
 				else if (pTemp[i] != '\r') 
@@ -824,8 +825,8 @@ VOID DIALOG_FilePrint(VOID)
 					xLeft += szMetric.cx;
 
 					// Insert a line break if the current line does not fit into the printing area 
-					if (xLeft > rcPrintRect.right) { // 여백을 초과 시 다음줄로
-						xLeft = 0;
+					if ( (xLeft + defaultMargin) > rcPrintRect.right) { // 여백을 초과 시 다음줄로
+						xLeft = defaultMargin;
 						yTop = yTop + tm.tmHeight;
 					}
 				}
