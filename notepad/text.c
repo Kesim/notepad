@@ -305,7 +305,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
                 dwByteCount = WideCharToMultiByte(iCodePage, 0, &pszText[dwPos], dwTextLen - dwPos, (LPSTR) pBytes, iBufferSize, NULL, NULL);
 				if (!dwByteCount)
 				{
-					freeBuffer(pAllocBuffer);
+					freeLPBYTEBuffer(pAllocBuffer);
 
 					return FALSE;
 				}
@@ -314,7 +314,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
                 break;
 
             default: //위의 유니코드와 맞지 않으면 종료
-				freeBuffer(pAllocBuffer);
+				freeLPBYTEBuffer(pAllocBuffer);
 
 				return FALSE;
         }
@@ -328,7 +328,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
 		}
 
         /* free the buffer, if we have allocated one */
-		freeBuffer(pAllocBuffer);
+		freeLPBYTEBufferSetNull(pAllocBuffer);
     }
 
     return TRUE;
@@ -406,10 +406,42 @@ BOOL WriteText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile, int 
     return TRUE;
 }
 
-static VOID freeBuffer(LPBYTE pAllocBuffer)
+BOOL freeLPBYTEBuffer(LPBYTE pAllocBuffer)
 {
-	if(pAllocBuffer)
+	if (pAllocBuffer)
+	{
 		HeapFree(GetProcessHeap(), 0, pAllocBuffer);
 
-	pAllocBuffer = NULL;
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer)
+{
+	if(freeLPBYTEBuffer(pAllocBuffer))
+		pAllocBuffer = NULL;
+
+	return;
+}
+
+BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer)
+{
+	if (pAllocBuffer)
+	{
+		HeapFree(GetprocessHeap(), 0, pAllocBuffer);
+
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+VOID freeLPWSTRBufferSetNull(LPWSTR pAllocBuffer)
+{
+	if (freeLPWSTRBuffer(pAllocBuffer))
+		pAllocBuffer = NULL;
+
+	return;
 }
