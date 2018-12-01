@@ -10,7 +10,7 @@ So just for practice.
 We use BSD style for bracket.
 # Screenshots
 ***
-![snapshot](https://ibb.co/GRH0M30)
+![snapshot](snapshot.png)
 # framework used
 ***
 used win32 api
