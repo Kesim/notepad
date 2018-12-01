@@ -592,8 +592,8 @@ void InitGobal(HINSTANCE hInstance)
 */
 void InitWndClass(WNDCLASSEX* wndclass,HINSTANCE hInstance, TCHAR className[])
 {
-	ZeroMemory(wndclass, sizeof(wndclass));
-	wndclass->cbSize = sizeof(wndclass);
+	ZeroMemory(wndclass, sizeof(*wndclass));
+	wndclass->cbSize = sizeof(*wndclass);
 	wndclass->lpfnWndProc = NOTEPAD_WndProc;
 	wndclass->hInstance = Globals.hInstance;
 	wndclass->hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_NPICON));
@@ -653,7 +653,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
     NOTEPAD_LoadSettingsFromRegistry();
 
 	InitWndClass(&wndclass, hInstance, className);
-	
 
     if (!RegisterClassEx(&wndclass)) return FALSE;
 
