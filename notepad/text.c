@@ -23,7 +23,13 @@
 #include "notepad.h"
 
 static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, DWORD dwAppendLen);
+BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *piEoln);
 static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile);
+BOOL WriteText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile, int iEoln);
+BOOL freeLPBYTEBuffer(LPBYTE pAllocBuffer);
+VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer);
+BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer);
+VOID freeLPWSTRBufferSetNull(LPWSTR pAllocBuffer);
 
 static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, DWORD dwAppendLen)
 {	//기존에 새로운 내용 추가
@@ -51,8 +57,7 @@ static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, D
     return TRUE;
 }
 
-BOOL
-ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *piEoln)
+BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *piEoln)
 {
     DWORD dwSize;
     LPBYTE pBytes = NULL;
@@ -200,7 +205,7 @@ ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *
 				{
 					freeLPBYTEBuffer(pBytes);
 					freeLPWSTRBuffer(pszText);
-					freeLPWSTRBufferSetNull(ppszText);
+					freeLPWSTRBufferSetNull(*ppszText);
 					pdwTextLen = 0;
 
 					return FALSE;
@@ -210,7 +215,7 @@ ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *
 				{
 					freeLPBYTEBuffer(pBytes);
 					freeLPWSTRBuffer(pszText);
-					freeLPWSTRBufferSetNull(ppszText);
+					freeLPWSTRBufferSetNull(*ppszText);
 					pdwTextLen = 0;
 
 					return FALSE;
@@ -347,7 +352,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
 		//파일에 pBytes내용을 dwByteCount수만큼 씀. dwDummy는 파일에 쓰여진 바이트 갯수
 		if (!WriteFile(hFile, pBytes, dwByteCount, &dwDummy, NULL))
 		{
-			freeBuffer(pAllocBuffer);
+			freeLPBYTEBuffer(pAllocBuffer);
 
 			return FALSE;
 		}
@@ -455,7 +460,7 @@ BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer)
 {
 	if (pAllocBuffer)
 	{
-		HeapFree(GetprocessHeap(), 0, pAllocBuffer);
+		HeapFree(GetProcessHeap(), 0, pAllocBuffer);
 
 		return TRUE;
 	}
