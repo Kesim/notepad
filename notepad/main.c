@@ -255,6 +255,14 @@ static VOID NOTEPAD_FindTerm(VOID)
     Globals.hFindReplaceDlg = NULL;
 }
 
+LPTSTR myStrCat(HINSTANCE instance, UINT id, LPTSTR str, const TCHAR info[], UINT arraySize)
+{
+	str += LoadString(instance, STRING_TEXT_FILES_TXT, str, MAX_STRING_LEN) + 1;
+	_tcscpy(str, info);
+	str += arraySize;
+	return str;
+}
+
 /***********************************************************************
  * Data Initialization
  */
@@ -263,15 +271,10 @@ static VOID NOTEPAD_InitData(VOID)
     LPTSTR p = Globals.szFilter;
     static const TCHAR txt_files[] = _T("*.txt");
     static const TCHAR all_files[] = _T("*.*");
-
-    p += LoadString(Globals.hInstance, STRING_TEXT_FILES_TXT, p, MAX_STRING_LEN) + 1;
-    _tcscpy(p, txt_files);
-    p += ARRAY_SIZE(txt_files);
-
-    p += LoadString(Globals.hInstance, STRING_ALL_FILES, p, MAX_STRING_LEN) + 1;
-    _tcscpy(p, all_files);
-    p += ARRAY_SIZE(all_files);
+	p = myStrCat(Globals.hInstance, STRING_TEXT_FILES_TXT, p, txt_files, ARRAY_SIZE(txt_files));
+	p = myStrCat(Globals.hInstance, STRING_ALL_FILES, p, all_files, ARRAY_SIZE(all_files));
     *p = '\0';
+
     Globals.find.lpstrFindWhat = NULL;
 
     Globals.hDevMode = NULL;
