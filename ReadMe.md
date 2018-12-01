@@ -23,9 +23,9 @@ No need to further work to complie.
 So easy to build.
 # Contribute
 ***
-wanttobenno : original writer
-kesim : committer
-GyurimShim : contributor
+wanttobenno : original writer  
+kesim : committer  
+GyurimShim : contributor  
 # Credits
 ***
 original repository  
