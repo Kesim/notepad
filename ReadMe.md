@@ -1,11 +1,36 @@
-
-<p align="center">notepad</p>
-
-
-学习文本绘制的时候不知道从哪里下载的源码。
-
-上传一份，补充GUN协议。
-
-
-![snatshot.png](snatshot.png)
+# PROJECT TITLE
+***
+Identical functionality with windows notepad.
+# Motivation
+***
+This project was created for making clean code, using win32 api well.  
+So just for practice.
+# Code Style
+***
+We use BSD style for bracket.
+# Screenshots
+***
+![snapshot](snapshot.png)
+# framework used
+***
+used win32 api
+# features
+***
+Feature: can change language manually 
+# installation 
+***
+No need to further work to complie.  
+So easy to build.
+# Contribute
+***
+wanttobenno : original writer  
+kesim : committer  
+GyurimShim : contributor  
+# Credits
+***
+original repository  
+[wanttobeno's notepad](https://github.com/wanttobeno/notepad)
+# License
+***
+We use GPL-3.0 license.
 
