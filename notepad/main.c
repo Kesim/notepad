@@ -608,6 +608,17 @@ void InitWndClass(WNDCLASSEX* wndclass,HINSTANCE hInstance, TCHAR className[])
 		16,
 		0);
 }
+
+/*
+	Check info region is in the main.
+*/
+int IsInMainWnd(RECT main, RECT info)
+{
+	return ! (main.left >= info.right ||
+		main.top >= info.bottom ||
+		main.right < info.left ||
+		main.bottom < info.top);
+}
 /***********************************************************************
  *
  *           WinMain
@@ -654,10 +665,8 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
 
     x = Globals.main_rect.left;
     y = Globals.main_rect.top;
-    if (Globals.main_rect.left >= info.rcWork.right ||
-        Globals.main_rect.top >= info.rcWork.bottom ||
-        Globals.main_rect.right < info.rcWork.left ||
-        Globals.main_rect.bottom < info.rcWork.top)
+    
+	if (!IsInMainWnd(Globals.main_rect,info.rcWork))
         x = y = CW_USEDEFAULT;
 
     Globals.hMainWnd = CreateWindow(className,
