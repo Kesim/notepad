@@ -641,6 +641,90 @@ BOOL DIALOG_FileSaveAs(VOID)
 	}
 }
 
+// 최대 출력 페이지 번호 리턴 //return max print page number
+WORD GetMaxPage()
+{
+	TEXTMETRIC tm;
+	PRINTDLG printer;
+	SIZE szMetric; // rectangle의 너비, 높이 설정
+	DWORD size;
+	LPTSTR pTemp;
+	RECT rcPrintRect;
+	const int defaultMargins = 300;
+	int border;
+	int xLeft, yTop, pagecount, dopage;
+	unsigned int i;
+
+	ZeroMemory(&printer, sizeof(printer));
+	printer.lStructSize = sizeof(printer); // 구조체 크기
+	printer.hwndOwner = Globals.hMainWnd; // 대화상자 소유한 윈도우 핸들
+	printer.hInstance = Globals.hInstance; // 별도의 대화상자 템플릿 사용시 리소스 가진 인스턴스 핸들
+
+	printer.Flags = PD_RETURNDC | PD_SELECTION; // 대화상자 초기화에 사용 플래그 // Set some default flags 
+
+	if (GetSelectionTextLength(Globals.hEdit) == 0)
+	{
+		printer.Flags = printer.Flags | PD_RETURNDEFAULT;
+	}
+
+	if (PrintDlg(&printer) == FALSE) // 프린트 다이얼로그를 열기 // open print dialog
+	{
+		return -1;
+	}
+	// 다이얼로그에서 설정한 대로 해당 구조체 최신화 // update structures
+	Globals.hDevMode = printer.hDevMode;
+	Globals.hDevNames = printer.hDevNames;
+
+	size = GetWindowTextLength(Globals.hEdit) + 1;
+
+	pTemp = HeapAlloc(GetProcessHeap(), 0, size * sizeof(TCHAR)); // 버퍼 할당 // todo : pTemp => pTextBuf
+	if (pTemp == NULL)
+		return -1;
+
+	size = GetWindowText(Globals.hEdit, pTemp, size);
+
+	rcPrintRect = GetPrintingRect(printer.hDC, Globals.lMargins); // 프린팅 영역 (RECT)
+	SetMapMode(printer.hDC, MM_TEXT); // 각 논리 유닛 하나가 한 픽셀에 매치되게 함 // Ensure that each logical unit maps to one pixel 
+	GetTextMetrics(printer.hDC, &tm); // 물리적인 폰트의 크기를 알아냄 // Needed to get the correct height of a text line 
+
+	border = 15;
+
+	i = 0; // todo: 위치 조정할 필요 있는지 검토
+	pagecount = 1;
+	do {
+		dopage = 1;
+
+		// 머릿말이 끝나고 메인 텍스트 부분이 나타남 // The starting point for the main text 
+		xLeft = defaultMargins;
+		yTop = border + tm.tmHeight * 4;
+
+		// Since outputting strings is giving me problems, output the main text one character at a time. 
+		do {
+			if (pTemp[i] == '\n')
+			{ // 줄 넘기기
+				xLeft = defaultMargins; // todo : 일정한 마진 값을 설정
+				yTop += tm.tmHeight;
+			}
+			else if (pTemp[i] != '\r')
+			{ // \r 무시하기
+				GetTextExtentPoint32(printer.hDC, &pTemp[i], 1, &szMetric); // 문자열의 크기 조사 -> szMetric에 저장
+				xLeft += szMetric.cx;
+
+				// Insert a line break if the current line does not fit into the printing area 
+				if ((xLeft + defaultMargins) > rcPrintRect.right) { // 여백을 초과 시 다음줄로
+					xLeft = defaultMargins;
+					yTop = yTop + tm.tmHeight;
+				}
+			}
+		} while (i++ < size && yTop < rcPrintRect.bottom);
+
+		pagecount++;
+	} while (i < size); // 모든 문자 출력할 때까지 // until all the letters printed
+
+	HeapFree(GetProcessHeap(), 0, pTemp);
+	return (WORD)(pagecount - 1);
+}
+
 // 파일 프린트
 VOID DIALOG_FilePrint(VOID) 
 {
@@ -690,7 +774,7 @@ VOID DIALOG_FilePrint(VOID)
 	printer.nFromPage = 0;
 	printer.nMinPage = 1;
 	// FIXME : 최대 출력 장수 계산 못함
-	printer.nToPage = (WORD)-1;
+	printer.nToPage = GetMaxPage();
 	printer.nMaxPage = (WORD)-1;
 
 	useDevModeCopies = PD_USEDEVMODECOPIES;
