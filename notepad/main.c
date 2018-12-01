@@ -587,6 +587,27 @@ void InitGobal(HINSTANCE hInstance)
 	Globals.hInstance = hInstance;
 }
 
+/*
+	Initiate Wndclass with instance and className
+*/
+void InitWndClass(WNDCLASSEX* wndclass,HINSTANCE hInstance, TCHAR className[])
+{
+	ZeroMemory(wndclass, sizeof(wndclass));
+	wndclass->cbSize = sizeof(wndclass);
+	wndclass->lpfnWndProc = NOTEPAD_WndProc;
+	wndclass->hInstance = Globals.hInstance;
+	wndclass->hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_NPICON));
+	wndclass->hCursor = LoadCursor(0, IDC_ARROW);
+	wndclass->hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wndclass->lpszMenuName = MAKEINTRESOURCE(MAIN_MENU);
+	wndclass->lpszClassName = className;
+	wndclass->hIconSm = (HICON)LoadImage(hInstance,
+		MAKEINTRESOURCE(IDI_NPICON),
+		IMAGE_ICON,
+		16,
+		16,
+		0);
+}
 /***********************************************************************
  *
  *           WinMain
@@ -620,21 +641,8 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
 	InitGobal(hInstance);
     NOTEPAD_LoadSettingsFromRegistry();
 
-    ZeroMemory(&wndclass, sizeof(wndclass));
-    wndclass.cbSize = sizeof(wndclass);
-    wndclass.lpfnWndProc = NOTEPAD_WndProc;
-    wndclass.hInstance = Globals.hInstance;
-    wndclass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_NPICON));
-    wndclass.hCursor = LoadCursor(0, IDC_ARROW);
-    wndclass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wndclass.lpszMenuName = MAKEINTRESOURCE(MAIN_MENU);
-    wndclass.lpszClassName = className;
-    wndclass.hIconSm = (HICON)LoadImage(hInstance,
-                                        MAKEINTRESOURCE(IDI_NPICON),
-                                        IMAGE_ICON,
-                                        16,
-                                        16,
-                                        0);
+	InitWndClass(&wndclass, hInstance, className);
+	
 
     if (!RegisterClassEx(&wndclass)) return FALSE;
 
