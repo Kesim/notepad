@@ -23,8 +23,13 @@
 #include "notepad.h"
 
 static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, DWORD dwAppendLen);
+BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *piEoln);
 static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile);
-static VOID freeBuffer(LPBYTE pAllocBuffer);
+BOOL WriteText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile, int iEoln);
+BOOL freeLPBYTEBuffer(LPBYTE pAllocBuffer);
+VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer);
+BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer);
+VOID freeLPWSTRBufferSetNull(LPWSTR pAllocBuffer);
 
 static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, DWORD dwAppendLen)
 {	//기존에 새로운 내용 추가
@@ -52,8 +57,7 @@ static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, D
     return TRUE;
 }
 
-BOOL
-ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *piEoln)
+BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *piEoln)
 {
     DWORD dwSize;
     LPBYTE pBytes = NULL;
@@ -61,7 +65,6 @@ ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *
     LPWSTR pszAllocText = NULL;
     DWORD dwPos, i;
     DWORD dwCharCount;
-    BOOL bSuccess = FALSE;
     BYTE b = 0;
     int encFile = ENCODING_ANSI; //기본 유니코드 종류 값으로 사용
     int iCodePage = 0;
@@ -72,20 +75,29 @@ ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *
     *pdwTextLen = 0;
 
     dwSize = GetFileSize(hFile, NULL); //해당 파일의 사이즈를 구함
-    if (dwSize == INVALID_FILE_SIZE) //사용할 수 없으면 종료
-        goto done;
+	if (dwSize == INVALID_FILE_SIZE) //사용할 수 없으면 종료
+		return FALSE;
 
 	//파일 크기 + 2 만큼 힙 메모리 할당(마지막 두 칸엔 나중에 널을 입력할 것)
     pBytes = HeapAlloc(GetProcessHeap(), 0, dwSize + 2);
-    if (!pBytes) //할당 실패 시 종료
-        goto done;
+	if (!pBytes) //할당 실패 시 종료
+	{
+		freeLPBYTEBuffer(pBytes);
+
+		return FALSE;
+	}
 
 	//파일의 내용을 위에서 할당한 핸들러에 최대 파일의 크기만큼 읽는다
-    if (!ReadFile(hFile, pBytes, dwSize, &dwSize, NULL))
-        goto done; //읽기 실패 시 종료
+	if (!ReadFile(hFile, pBytes, dwSize, &dwSize, NULL))
+	{
+		freeLPBYTEBuffer(pBytes); //읽기 실패 시 종료
+
+		return FALSE;
+	}
+
     dwPos = 0;
 
-    /* Make sure that there is a NUL character at the end, in any encoding */
+    /* Make sure that there is a NULL character at the end, in any encoding */
     pBytes[dwSize + 0] = '\0'; //읽어온 파일의 마지막에 널값을 두번 넣어 확실히 끝맺는다
     pBytes[dwSize + 1] = '\0';
 
@@ -109,54 +121,68 @@ ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *
 
     switch(encFile)
     {
-    case ENCODING_UNICODE_BE:
-		//바이트 단위로 2개씩 앞뒤 순서를 바꿈. 결과적으로 dwPos는 내용 끝의 위치를 가리킴
-        for (i = dwPos; i < dwSize-1; i += 2)
-        {
-            b = pBytes[i+0];
-            pBytes[i+0] = pBytes[i+1];
-            pBytes[i+1] = b;
-        }
-        /* fall through */
+		case ENCODING_UNICODE_BE:
+			//바이트 단위로 2개씩 앞뒤 순서를 바꿈. 결과적으로 dwPos는 내용 끝의 위치를 가리킴
+			for (i = dwPos; i < dwSize-1; i += 2)
+			{
+				b = pBytes[i+0];
+				pBytes[i+0] = pBytes[i+1];
+				pBytes[i+1] = b;
+			}
+			/* fall through */
 
-    case ENCODING_UNICODE:
-        pszText = (LPWSTR) &pBytes[dwPos]; //파일 내용을 포인터로 가리킴
-        dwCharCount = (dwSize - dwPos) / sizeof(WCHAR); //파일의 문자 갯수
-        break;
+		case ENCODING_UNICODE:
+			pszText = (LPWSTR) &pBytes[dwPos]; //파일 내용을 포인터로 가리킴
+			dwCharCount = (dwSize - dwPos) / sizeof(WCHAR); //파일의 문자 갯수
+			break;
 
-    case ENCODING_ANSI:
-    case ENCODING_UTF8:
-        if (encFile == ENCODING_ANSI)
-            iCodePage = CP_ACP;
-        else if (encFile == ENCODING_UTF8)
-            iCodePage = CP_UTF8;
+		case ENCODING_ANSI:
+		case ENCODING_UTF8:
+			if (encFile == ENCODING_ANSI)
+				iCodePage = CP_ACP;
+			else if (encFile == ENCODING_UTF8)
+				iCodePage = CP_UTF8;
 
-        if ((dwSize - dwPos) > 0)
-        {	//멀티 바이트를 유니코드 문자열로 바꾸어 문자 갯수를 셈 
-            dwCharCount = MultiByteToWideChar(iCodePage, 0, (LPCSTR)&pBytes[dwPos], dwSize - dwPos, NULL, 0);
-            if (dwCharCount == 0) //문자가 없으면 종료
-                goto done;
-        }
-        else //todo : 빈 파일로 해석되는데 goto done; 을 사용하지 않음
-        {
-            /* special case for files with no characters (other than BOMs) */
-            dwCharCount = 0;
-        }
+			if ((dwSize - dwPos) > 0)
+			{	//멀티 바이트를 유니코드 문자열로 바꾸어 문자 갯수를 셈 
+				dwCharCount = MultiByteToWideChar(iCodePage, 0, (LPCSTR)&pBytes[dwPos], dwSize - dwPos, NULL, 0);
+				if (dwCharCount == 0) //문자가 없으면 종료
+				{
+					freeLPBYTEBuffer(pBytes);
 
-		//문자 갯수 + 1 만큼의 메모리를 할당
-        pszAllocText = (LPWSTR) HeapAlloc(GetProcessHeap(), 0, (dwCharCount + 1) * sizeof(WCHAR));
-        if (!pszAllocText) //할당 실패 시 종료
-            goto done;
+					return FALSE;
+				}
+			}
+			else //todo : 빈 파일로 해석되는데 goto done; 을 사용하지 않음
+			{
+				/* special case for files with no characters (other than BOMs) */
+				dwCharCount = 0;
+			}
 
-        if ((dwSize - dwPos) > 0)
-        {	//파일에 문자가 있으면, 멀티 바이트에서 유니코드 문자열로 바꿈. pszAllocText에 dwCharCount수만큼 저장됨
-            if (!MultiByteToWideChar(iCodePage, 0, (LPCSTR)&pBytes[dwPos], dwSize - dwPos, pszAllocText, dwCharCount))
-                goto done; //실패시 종료
-        }
+			//문자 갯수 + 1 만큼의 메모리를 할당
+			pszAllocText = (LPWSTR) HeapAlloc(GetProcessHeap(), 0, (dwCharCount + 1) * sizeof(WCHAR));
+			if (!pszAllocText) //할당 실패 시 종료
+			{
+				freeLPBYTEBuffer(pBytes);
+				freeLPWSTRBuffer(pszAllocText);
 
-        pszAllocText[dwCharCount] = '\0'; //할당된 문자열 마지막에 널 추가
-        pszText = pszAllocText; //파일 내용을 포인터로 가리킴
-        break;
+				return FALSE;
+			}
+
+			if ((dwSize - dwPos) > 0)
+			{	//파일에 문자가 있으면, 멀티 바이트에서 유니코드 문자열로 바꿈. pszAllocText에 dwCharCount수만큼 저장됨
+				if (!MultiByteToWideChar(iCodePage, 0, (LPCSTR)&pBytes[dwPos], dwSize - dwPos, pszAllocText, dwCharCount))
+				{
+					freeLPBYTEBuffer(pBytes);
+					freeLPWSTRBuffer(pszAllocText);
+
+					return FALSE;
+				}
+			}
+
+			pszAllocText[dwCharCount] = '\0'; //할당된 문자열 마지막에 널 추가
+			pszText = pszAllocText; //파일 내용을 포인터로 가리킴
+			break;
     }
 
     dwPos = 0; //현재 파일 내용에서 읽어올 부분의 시작점
@@ -164,34 +190,48 @@ ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *
     {
         switch(pszText[i])
         {
-        case '\r':
-            if ((i < dwCharCount-1) && (pszText[i+1] == '\n'))
-            {
-                i++; //한칸 더 전진
-                adwEolnCount[EOLN_CRLF]++;
-                break;
-            }
-            /* fall through */
+			case '\r':
+				if ((i < dwCharCount-1) && (pszText[i+1] == '\n'))
+				{
+					i++; //한칸 더 전진
+					adwEolnCount[EOLN_CRLF]++;
+					break;
+				}
+				/* fall through */
 
-        case '\n':
-			//\n와 \n사이의 내용을 원래 내용에 합침
-            if (!Append(ppszText, pdwTextLen, &pszText[dwPos], i - dwPos))
-                return FALSE;
-			//원래 내용 마지막에 \r\n을 합침
-            if (!Append(ppszText, pdwTextLen, szCrlf, ARRAY_SIZE(szCrlf)))
-                return FALSE;
-            dwPos = i + 1; //읽어올 파일 내용의 시작점 전진
+			case '\n':
+				//\n와 \n사이의 내용을 원래 내용에 합침
+				if (!Append(ppszText, pdwTextLen, &pszText[dwPos], i - dwPos))
+				{
+					freeLPBYTEBuffer(pBytes);
+					freeLPWSTRBuffer(pszText);
+					freeLPWSTRBufferSetNull(*ppszText);
+					pdwTextLen = 0;
 
-            if (pszText[i] == '\r')
-                adwEolnCount[EOLN_CR]++; //\n\r
-            else
-                adwEolnCount[EOLN_LF]++; //단순 개행 \n
-            break;
+					return FALSE;
+				}
+				//원래 내용 마지막에 \r\n을 합침
+				if (!Append(ppszText, pdwTextLen, szCrlf, ARRAY_SIZE(szCrlf)))
+				{
+					freeLPBYTEBuffer(pBytes);
+					freeLPWSTRBuffer(pszText);
+					freeLPWSTRBufferSetNull(*ppszText);
+					pdwTextLen = 0;
 
-        case '\0': //널 -> ' '
-            pszText[i] = ' ';
-            break;
-        }
+					return FALSE;
+				}
+				dwPos = i + 1; //읽어올 파일 내용의 시작점 전진
+
+				if (pszText[i] == '\r')
+					adwEolnCount[EOLN_CR]++; //\n\r
+				else
+					adwEolnCount[EOLN_LF]++; //단순 개행 \n
+				break;
+
+			case '\0': //널 -> ' '
+				pszText[i] = ' ';
+				break;
+			}
     }
 
     if (!*ppszText && (pszText == pszAllocText))
@@ -204,8 +244,13 @@ ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *
     else
     {	//위의 \n과 \n사이의 문자열 다음 파일 끝까지의 내용을 원래 내용에 합침
         /* append last remaining text */
-        if (!Append(ppszText, pdwTextLen, &pszText[dwPos], i - dwPos + 1))
-            return FALSE;
+		if (!Append(ppszText, pdwTextLen, &pszText[dwPos], i - dwPos + 1))
+		{
+			freeLPBYTEBuffer(pBytes);
+			freeLPWSTRBuffer(pszText);
+
+			return FALSE;
+		}
     }
 
     /* chose which eoln to use */
@@ -216,22 +261,7 @@ ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *
         *piEoln = EOLN_CR;
     *pencFile = encFile; //파일의 유니코드 종류 넘겨줌
 
-    bSuccess = TRUE; //파일의 내용을 성공적으로 추가함
-
-done:
-    if (pBytes) //파일을 읽어온 두 변수에 메모리를 할당하여 사용했으면 메모리 해제
-        HeapFree(GetProcessHeap(), 0, pBytes);
-    if (pszAllocText)
-        HeapFree(GetProcessHeap(), 0, pszAllocText);
-
-	//파일의 내용 추가에 실패하고, 원래의 내용이 존재하면 해당 내용의 메모리 해제 후 초기화
-    if (!bSuccess && *ppszText)
-    {
-        HeapFree(GetProcessHeap(), 0, *ppszText);
-        *ppszText = NULL;
-        *pdwTextLen = 0;
-    }
-    return bSuccess;
+    return TRUE;
 }
 
 static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile)
@@ -305,7 +335,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
                 dwByteCount = WideCharToMultiByte(iCodePage, 0, &pszText[dwPos], dwTextLen - dwPos, (LPSTR) pBytes, iBufferSize, NULL, NULL);
 				if (!dwByteCount)
 				{
-					freeBuffer(pAllocBuffer);
+					freeLPBYTEBuffer(pAllocBuffer);
 
 					return FALSE;
 				}
@@ -314,7 +344,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
                 break;
 
             default: //위의 유니코드와 맞지 않으면 종료
-				freeBuffer(pAllocBuffer);
+				freeLPBYTEBuffer(pAllocBuffer);
 
 				return FALSE;
         }
@@ -322,13 +352,13 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
 		//파일에 pBytes내용을 dwByteCount수만큼 씀. dwDummy는 파일에 쓰여진 바이트 갯수
 		if (!WriteFile(hFile, pBytes, dwByteCount, &dwDummy, NULL))
 		{
-			freeBuffer(pAllocBuffer);
+			freeLPBYTEBuffer(pAllocBuffer);
 
 			return FALSE;
 		}
 
         /* free the buffer, if we have allocated one */
-		freeBuffer(pAllocBuffer);
+		freeLPBYTEBufferSetNull(pAllocBuffer);
     }
 
     return TRUE;
@@ -406,10 +436,42 @@ BOOL WriteText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile, int 
     return TRUE;
 }
 
-static VOID freeBuffer(LPBYTE pAllocBuffer)
+BOOL freeLPBYTEBuffer(LPBYTE pAllocBuffer)
 {
-	if(pAllocBuffer)
+	if (pAllocBuffer)
+	{
 		HeapFree(GetProcessHeap(), 0, pAllocBuffer);
 
-	pAllocBuffer = NULL;
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer)
+{
+	if(freeLPBYTEBuffer(pAllocBuffer))
+		pAllocBuffer = NULL;
+
+	return;
+}
+
+BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer)
+{
+	if (pAllocBuffer)
+	{
+		HeapFree(GetProcessHeap(), 0, pAllocBuffer);
+
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+VOID freeLPWSTRBufferSetNull(LPWSTR pAllocBuffer)
+{
+	if (freeLPWSTRBuffer(pAllocBuffer))
+		pAllocBuffer = NULL;
+
+	return;
 }
