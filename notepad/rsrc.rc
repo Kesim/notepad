@@ -43,8 +43,8 @@ IDI_NPICON ICON "res/notepad.ico"
  *         don't occur while using this program. Fix 'ps3' to 'ps1' at 104 lines
  *         in all of lang/*.rc file (except zh-CN.rc, ko-KR.rc, en-US.rc files) 
 */
-//#define LANGUAGE_ZH_CN
-#define LANGUAGE_KO_KR // Set this program's UI language to korean
+#define LANGUAGE_ZH_CN
+//#define LANGUAGE_KO_KR // Set this program's UI language to korean
 
 /* UTF-8 */
 #pragma code_page(65001)
