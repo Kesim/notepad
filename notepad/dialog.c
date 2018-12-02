@@ -623,13 +623,13 @@ BOOL DIALOG_FileSaveAs(VOID)
 
 WORD GetMaxPage(VOID)
 {
+	const int defaultMargins = 300;
 	TEXTMETRIC tmPhyFont;
 	PRINTDLG printer;
 	SIZE szMetric; 
 	DWORD size;
 	LPTSTR pTextBuf;
 	RECT rcPrintRect;
-	const int defaultMargins = 300;
 	int border;
 	int xLeft, yTop, pagecount, dopage;
 	unsigned int i;
@@ -668,7 +668,7 @@ WORD GetMaxPage(VOID)
 
 	border = 15;
 
-	i = 0; // todo: 위치 조정할 필요 있는지 검토
+	i = 0; 
 	pagecount = 1;
 	do {
 		dopage = 1;
@@ -681,7 +681,7 @@ WORD GetMaxPage(VOID)
 		do {
 			if (pTextBuf[i] == '\n')
 			{ // 줄 넘기기
-				xLeft = defaultMargins; // todo : 일정한 마진 값을 설정
+				xLeft = defaultMargins; 
 				yTop += tmPhyFont.tmHeight;
 			}
 			else if (pTextBuf[i] != '\r')
@@ -708,16 +708,17 @@ WORD GetMaxPage(VOID)
 VOID DIALOG_FilePrint(VOID) 
 {
 	static const TCHAR timesNewRoman[] = _T("Times New Roman");
+	static const int defaultMargins = 300;
+	static const WORD notSelected = (WORD)-1;
 	DOCINFO printDocInfo;
 	TEXTMETRIC tmPhyFont;
 	PRINTDLG printer;
-	SIZE szMetric; // rectangle의 너비, 높이 설정
-	LOGFONT hdrFont; // 폰트 정보 담은 구조체
+	SIZE szMetric;
+	LOGFONT hdrFont;
 	HFONT font, oldFont = 0;
 	DWORD textLength;
 	LPTSTR pTextBuf;
 	RECT rcPrintRect;
-	const int defaultMargins = 300;
 	int border;
 	int xLeft, yTop, pagecount, dopage, copycount;
 	int useDevModeCopies;
@@ -726,21 +727,21 @@ VOID DIALOG_FilePrint(VOID)
 	// Get a small font and print some header info on each page 
 	ZeroMemory(&hdrFont, sizeof(hdrFont));
 	hdrFont.lfHeight = 100; 
-	hdrFont.lfWeight = FW_BOLD; // 글꼴의 가중치를 지정함
-	hdrFont.lfCharSet = ANSI_CHARSET; // 문자 집합 지정
-	hdrFont.lfOutPrecision = OUT_DEFAULT_PRECIS; // 출력 정밀도 지정
+	hdrFont.lfWeight = FW_BOLD; 
+	hdrFont.lfCharSet = ANSI_CHARSET; 
+	hdrFont.lfOutPrecision = OUT_DEFAULT_PRECIS; 
 	hdrFont.lfClipPrecision = CLIP_DEFAULT_PRECIS;
-	hdrFont.lfQuality = PROOF_QUALITY; // 출력 품질 지정
-	hdrFont.lfPitchAndFamily = VARIABLE_PITCH | FF_ROMAN; // 글꼴 패밀리를 지정합니다
-	_tcscpy(hdrFont.lfFaceName, timesNewRoman); // 서체 이름 지정
+	hdrFont.lfQuality = PROOF_QUALITY;
+	hdrFont.lfPitchAndFamily = VARIABLE_PITCH | FF_ROMAN;
+	_tcscpy(hdrFont.lfFaceName, timesNewRoman); 
 
-	font = CreateFontIndirect(&hdrFont); // LOGFONT 구조체를 바탕으로 폰트 생성
+	font = CreateFontIndirect(&hdrFont); 
 
 	// 기존 세팅을 가져옴 // get current settings							
 	ZeroMemory(&printer, sizeof(printer));
-	printer.lStructSize = sizeof(printer); // 구조체 크기
-	printer.hwndOwner = Globals.hMainWnd; // 대화상자 소유한 윈도우 핸들
-	printer.hInstance = Globals.hInstance; // 별도의 대화상자 템플릿 사용시 리소스 가진 인스턴스 핸들
+	printer.lStructSize = sizeof(printer); 
+	printer.hwndOwner = Globals.hMainWnd; 
+	printer.hInstance = Globals.hInstance; 
 
 	printer.Flags = PD_RETURNDC | PD_SELECTION; // 대화상자 초기화에 사용 플래그 // Set some default flags 
 
@@ -752,9 +753,9 @@ VOID DIALOG_FilePrint(VOID)
 
 	printer.nFromPage = 0;
 	printer.nMinPage = 1;
-	// FIXME : 최대 출력 장수 계산 못함
+	
 	printer.nToPage = GetMaxPage();
-	printer.nMaxPage = (WORD)-1;
+	printer.nMaxPage = notSelected;
 
 	useDevModeCopies = PD_USEDEVMODECOPIES;
 	printer.nCopies = (WORD)useDevModeCopies;
@@ -861,10 +862,10 @@ VOID DIALOG_FilePrint(VOID)
 				Rectangle(printer.hDC, border, border, rcPrintRect.right - border, border + tmPhyFont.tmHeight * 2);
 				
 				TextOut(printer.hDC,
-					border * 2, // x 좌표 
-					border + tmPhyFont.tmHeight / 2, // y 좌표
-					Globals.szFileTitle, // 출력 내용(파일 제목)
-					lstrlen(Globals.szFileTitle)); // 파일 제목의 길이
+					border * 2, 
+					border + tmPhyFont.tmHeight / 2, 
+					Globals.szFileTitle, 
+					lstrlen(Globals.szFileTitle)); 
 			}
 
 			// 머릿말이 끝나고 메인 텍스트 부분이 나타남 // The starting point for the main text 
