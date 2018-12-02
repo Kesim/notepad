@@ -6,7 +6,7 @@ But I introduce you some notice.
 ***
 When you print, you'll see the dialog  
 ![dialog](print_one_page.PNG)  
-You only see number 1, then you can print page up to 1 page.
+You only see number 1, then you can print page up to 1 page.  
 ![dialog](print_more_page.PNG)  
 Or you see '1-2' like this. Then you can print page up to 2 pages.
 So don't modify max page over maximum page number.  
