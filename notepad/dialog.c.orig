@@ -630,6 +630,7 @@ WORD GetMaxPage(VOID)
 	DWORD size;
 	LPTSTR pTextBuf;
 	RECT rcPrintRect;
+	
 	int border;
 	int xLeft, yTop, pagecount, dopage;
 	unsigned int i;
@@ -716,8 +717,8 @@ VOID DIALOG_FilePrint(VOID)
 	DOCINFO printDocInfo;
 	TEXTMETRIC tmPhyFont;
 	PRINTDLG printer;
-	SIZE szMetric;
-	LOGFONT hdrFont;
+	SIZE szMetric; // rectangle의 너비, 높이 설정
+	LOGFONT hdrFont; // 폰트 정보 담은 구조체
 	HFONT font, oldFont = 0;
 	DWORD textLength;
 	LPTSTR pTextBuf;

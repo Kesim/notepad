@@ -20,37 +20,60 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+/*
+ * settings.c modifined details
+ *
+ * -modifier : Kang SungMin
+ * -analyzed period : 18.10.19 ~ 18.10.26
+ * -analyzed details : As connect registry of notepad, set or save settings value.
+ *  Specially 'NOTEPAD_LoadSettingsFromRegistry()', 'NOTEPAD_SaveSettingsToRegistrly()'
+ *  funcs are declared in 'main.h'.
+ *  Original writer leaved 2 FIXME comment.
+ *  FIXME: Globals.fSaveWindowPositions = FALSE;
+ *  FIXME: Globals.fMLE_is_broken = FALSE;
+ *  I don't understand of 'fMLE_is_broken' means.
+ * -implemented functionality : 'save setting value to registry',
+ *  'get setting value from registry and set to this program'
+ */
+
 #include "notepad.h"
 #include <winreg.h>
 
 #pragma warning(disable:4996)
- /*
-  * _T는 유니코드 환경일 때 문자열을 유니코드로 변환함.
-  * s_szRegistryKey 값은 Microsoft의 Notepad레지스트리 주소를 저장함
- */
-static LPCTSTR s_szRegistryKey = _T("Software\\Microsoft\\Notepad");
 
+static LPCTSTR sSzRegistryKey = _T("Software\\Microsoft\\Notepad");
 
+static LONG HeightFromPointSize(DWORD dwPointSize);
+static DWORD PointSizeFromHeight(LONG lHeight);
+static BOOL QueryGeneric(HKEY hKey, LPCTSTR pszValueNameT,
+	DWORD dwExpectedType, LPVOID pvResult, DWORD dwResultSize);
+static BOOL QueryDword(HKEY hKey, LPCTSTR pszValueName, DWORD *pdwResult);
+static BOOL QueryByte(HKEY hKey, LPCTSTR pszValueName, BYTE *pbResult);
+static BOOL QueryBool(HKEY hKey, LPCTSTR pszValueName, BOOL *pbResult);
+static BOOL QueryString(HKEY hKey, LPCTSTR pszValueName, LPTSTR pszResult, DWORD dwResultSize);
+static BOOL SaveDword(HKEY hKey, LPCTSTR pszValueNameT, DWORD dwValue);
+static BOOL SaveString(HKEY hKey, LPCTSTR pszValueNameT, LPCTSTR pszValue);
+
+//폰트 크기를 입력받아 화면 한 글자에 출력할 픽셀 수 반환
 static LONG HeightFromPointSize(DWORD dwPointSize)
-{	//DWORD는 32bit cpu가 한번에 처리할 수 있는 단위(unsigned long)
+{	
     LONG lHeight;
     HDC hDC;
 
-    hDC = GetDC(NULL);//GetDC()는 device context(DC)를 가져오는 함수. NULL을 입력하면 화면 전체에서 DC를 검색함
+    hDC = GetDC(NULL);
 	/*
-	 * DC는 출력에 필요한 정보를 가지는 데이터 구조체. 좌표,색 ,굵기등 출력에 필요한 모든 정보를 담고있다
-	 * HDC는 DC를 다루는 handle로, DC의 정보를 저장하는 데이터 구조체의 위치를 가리킴. 포인터가 아닌 실제 객체의 메모리 주소를 가리킴
-	 * lHeight 값이 양수면 셀의 높이, 음수면 글자의 높이를 절대값으로 설정한다.
+	 * lHeight 값이 양수면 셀의 높이, 음수면 글자의 높이를 절대값으로 설정.
+	 * 폰트 크기 설정값과 사용자 화면의 인치당 픽셀 수를 이용하여
+	 * 화면 한 글자에 출력할 픽셀 수를 계산
+	 * 소수점 첫째자리에서 반올림 하기 위해 폰크 크기값은 실제 크기값의 10배 크기로 사용
 	*/
-	//32bit인 첫번째와 두번째를 곱한 64bit의 값을 32bit인 3번째 값으로 나눔. 정수로 반올림됨
     lHeight = -MulDiv(dwPointSize, GetDeviceCaps(hDC, LOGPIXELSY), 720);
-	//GetDeviceCaps()는 지정된 장치의 특정 정보를 검색. LOGPIXELSY은 화면의 논리적 인치 당 픽셀 갯수
-	ReleaseDC(NULL, hDC); //ReleaseDC()는 HWND의 DC를 해제함
-	//HWND는 윈도우 창을 관리하는 handle. 각 윈도우 창마다 정수값으로 설정됨
+	ReleaseDC(NULL, hDC);
 
     return lHeight;
 }
 
+//화면 한 글자에 출력된 픽셀 수를 입력받아 폰트 크기 반환
 static DWORD PointSizeFromHeight(LONG lHeight)
 {
     DWORD dwPointSize;
@@ -60,6 +83,7 @@ static DWORD PointSizeFromHeight(LONG lHeight)
     dwPointSize = -MulDiv(lHeight, 720, GetDeviceCaps(hDC, LOGPIXELSY));
     ReleaseDC(NULL, hDC);
 
+	//계산한 폰트 크기값의 소수점 첫째자리에서 반올림
     /* round to nearest multiple of 10 */
     dwPointSize += 5;
     dwPointSize -= dwPointSize % 10;
@@ -67,61 +91,86 @@ static DWORD PointSizeFromHeight(LONG lHeight)
     return dwPointSize;
 }
 
-static BOOL
-QueryGeneric(HKEY hKey, LPCTSTR pszValueNameT, DWORD dwExpectedType,
-             LPVOID pvResult, DWORD dwResultSize)
-{	//hkey의 지정한 레지스트를 찾아 복사해주는 함수
+/*
+ * 레지스트리에서 저장된 값을 읽어옴
+ * 밑의 각 타입의 함수에서 호출되어 사용
+ * -매개변수
+ * hKey : 레지스트리 핸들
+ * pszValueNameT : 레지스트리 변수명
+ * dwExpectedType : 저장된 값의 타입(DWORD, BYTE, BOOL, STRING)
+ * pvResult : 저장된 값을 입력받을 변수
+ * dwResultSize : 입력받을 값의 크기
+ * -반환 : 읽기 성공 여부
+ */
+static BOOL QueryGeneric(HKEY hKey, LPCTSTR pszValueNameT,
+	DWORD dwExpectedType, LPVOID pvResult, DWORD dwResultSize)
+{	
     DWORD dwType, cbData;
-    LPVOID *pTemp = _alloca(dwResultSize);
+    LPVOID *pTemp = _alloca(dwResultSize); //읽어온 값을 먼저 저장할 변수
 
-	//포인터 pTemp에 dwResultSize 크기만큼 0x00으로 채운다
-    ZeroMemory(pTemp, dwResultSize);
+    ZeroMemory(pTemp, dwResultSize); //할당된 메모리에 입력한 크기만큼 0x00로 채움
 
     cbData = dwResultSize;
 	/*
 	 * hkey에서 pszValueNameT의 레지스트를 찾아 타입은 dwType에, 항목은 pTemp에,
-	 * 항목을 저장하는데 사용한메모리 공간 크기는 cbData에 저장한다.
-	 * 성공하면 ERROR_SUCCESS, 실패하면 에러값을 반환한다.
+	 * 항목을 저장하는데 사용한메모리 공간 크기는 cbData에 저장.
+	 * 성공하면 ERROR_SUCCESS, 실패하면 에러값을 반환.
 	*/
     if (RegQueryValueEx(hKey, pszValueNameT, NULL, &dwType, (LPBYTE) pTemp, &cbData) != ERROR_SUCCESS)
         return FALSE;
 
-	//함수 사용시 예측한 타입이 아니면 false
-	if (dwType != dwExpectedType)
+	if (dwType != dwExpectedType) //잘못된 타입의 값을 읽음
 		return FALSE;
 
-	//pvResult 메모리 공간에 pTemp의 내용을 cbData바이트만큼 복사한다
+	//읽어온 값을 매개변수에 복사
     memcpy(pvResult, pTemp, cbData);
+
     return TRUE;
 }
 
+/*
+ * DWORD 타입의 레지스트리값 읽기
+ * -매개변수
+ * hKey : 레지스트리 핸들
+ * pszValueName : 읽어올 레지스트리 변수명
+ * pdwResult : 저장된 값을 입력받을 변수
+ * -반환 : 읽기 성공 여부
+ */
 static BOOL QueryDword(HKEY hKey, LPCTSTR pszValueName, DWORD *pdwResult)
-{	//DWORD 타입의 레지스트리 복사
+{
     return QueryGeneric(hKey, pszValueName, REG_DWORD, pdwResult, sizeof(*pdwResult));
 }
 
+/*
+ * BYTE 타입의 레지스트리값 읽기
+ * 먼저 DWORD타입으로 읽어온 후 BYTE로 형변환
+ */
 static BOOL QueryByte(HKEY hKey, LPCTSTR pszValueName, BYTE *pbResult)
-{	//DWORD 타입의 레지스트리 복사. 얻은 레지스트리의 잘못된 크기 판별
+{	
     DWORD dwResult;
     if (!QueryGeneric(hKey, pszValueName, REG_DWORD, &dwResult, sizeof(dwResult)))
         return FALSE;
     if (dwResult >= 0x100) //0x100 이상의 값은 잘못된 값
         return FALSE;
     *pbResult = (BYTE) dwResult;
+
     return TRUE;
 }
 
+//BOOL 타입의 레지스트리값 읽기
 static BOOL QueryBool(HKEY hKey, LPCTSTR pszValueName, BOOL *pbResult)
-{	//레지스트리를 복사해옴. 가져온 레지스트리의 값이 0이 아니면 true 반환
+{
     DWORD dwResult;
     if (!QueryDword(hKey, pszValueName, &dwResult))
         return FALSE;
     *pbResult = dwResult ? TRUE : FALSE;
+
     return TRUE;
 }
 
+//STRING 타입의 레지스트리값 읽기
 static BOOL QueryString(HKEY hKey, LPCTSTR pszValueName, LPTSTR pszResult, DWORD dwResultSize)
-{	//문자열 값의 레지스트리를 복사해옴
+{
     return QueryGeneric(hKey, pszValueName, REG_SZ, pszResult, dwResultSize * sizeof(TCHAR));
 }
 
@@ -130,32 +179,33 @@ static BOOL QueryString(HKEY hKey, LPCTSTR pszValueName, LPTSTR pszResult, DWORD
  *           NOTEPAD_LoadSettingsFromRegistry
  *
  *  Load settings from registry HKCU\Software\Microsoft\Notepad.
+ * 레지스트리에 저장된 설정값 읽어오기. 저장된 값이 없으면 초기값으로 설정
  */
 void NOTEPAD_LoadSettingsFromRegistry(void)
 {
     HKEY hKey = NULL;
     HFONT hFont;
     DWORD dwPointSize = 0;
-    INT base_length, dx, dy;
+    INT baseLength, dx, dy;
 
 	/*
-	* SM_CXSCREEN 값은 주 모니터 화면의 너비(픽셀), SM_CYSCREEN 값은 높이
-	* 두 값 중 길이가 더 큰쪽을 골라 base_length의 값으로 설정
-	*/
-    base_length = (GetSystemMetrics(SM_CXSCREEN) > GetSystemMetrics(SM_CYSCREEN)) ?
+	 * SM_CXSCREEN 값은 주 모니터 화면의 너비(픽셀), SM_CYSCREEN 값은 높이
+	  * 두 값 중 길이가 더 큰쪽을 골라 baseLength의 값으로 설정
+	 */
+    baseLength = (GetSystemMetrics(SM_CXSCREEN) > GetSystemMetrics(SM_CYSCREEN)) ?
                   GetSystemMetrics(SM_CYSCREEN) : GetSystemMetrics(SM_CXSCREEN);
 
-	//base_length값에서 각 비율을 사용해서 dx, dy 값 설정
-    dx = (INT)(base_length * .95);
+	//baseLength값에서 각 비율을 사용해서 dx, dy 값 설정
+    dx = (INT)(baseLength * .95);
     dy = dx * 3 / 4;
 	//사각형 포인터에 x왼쪽, y위, x오른쪽, y밑 좌표 설정
     SetRect(&Globals.main_rect, 0, 0, dx, dy);
 
 	/*
-	 * HKEY_CURRENT_USER의 레지스트리 키에서 s_szRegistryKey 을 찾아 hKey에 반환
+	 * HKEY_CURRENT_USER의 레지스트리 키에서 sSzRegistryKey 을 찾아 hKey에 반환
 	 * 성공 시 ERROR_SUCCESS 반환, 실패 시 에러코드 반환
 	*/
-    if (RegOpenKey(HKEY_CURRENT_USER, s_szRegistryKey, &hKey) == ERROR_SUCCESS)
+    if (RegOpenKey(HKEY_CURRENT_USER, sSzRegistryKey, &hKey) == ERROR_SUCCESS)
     {	//레지스트리가 존재할 경우 저장된 값을 가져옴
         QueryByte(hKey, _T("lfCharSet"), &Globals.lfFont.lfCharSet);
         QueryByte(hKey, _T("lfClipPrecision"), &Globals.lfFont.lfClipPrecision);
@@ -189,25 +239,19 @@ void NOTEPAD_LoadSettingsFromRegistry(void)
         Globals.main_rect.right = Globals.main_rect.left + dx;
         Globals.main_rect.bottom = Globals.main_rect.top + dy;
 
-		//bShowStatusBar 열려있는 것을 닫음??******************************
         /* invert value because DIALOG_ViewStatusBar will be called to show it */
         Globals.bShowStatusBar = !Globals.bShowStatusBar;
 
-		/*
-		 * 가져온 dwPointSize의 값으로 폰트의 lfHeight값을 설정.
-		 * 지정한 0이 아닌 값이 있으면 HeightFromPointSize()로 논리값으로 변환하여 저장.
-		 * 값이 없으면 100을 논리값으로 변환하여 사용.
-		 * 100 값을 매직넘버로 변환 가능***********************************************
-		*/
         if (dwPointSize != 0)
             Globals.lfFont.lfHeight = HeightFromPointSize(dwPointSize);
         else
-            Globals.lfFont.lfHeight = HeightFromPointSize(100);
+            Globals.lfFont.lfHeight = HeightFromPointSize(100); //잘못된 값이 저장되있을 경우 초기값으로 설정
 
         RegCloseKey(hKey); //사용한 레지스터키를 닫음
     }
     else
     {
+		//지정한 레지스트리가 없으면 초기값으로 설정
         /* If no settings are found in the registry, then use default values */
         Globals.bShowStatusBar = FALSE;
         Globals.bWrapLongLines = FALSE;
@@ -220,7 +264,6 @@ void NOTEPAD_LoadSettingsFromRegistry(void)
 		 * Globals.hInstance에서 STRING_PAGESETUP_HEADERVALUE을 찾아
 		 * 문자배열 Globals.szHeader에 ARRAY_SIZE(Globals.szHeader)크기만큼 가져온다.
 		*/
-
         LoadString(Globals.hInstance, STRING_PAGESETUP_HEADERVALUE, Globals.szHeader,
                    ARRAY_SIZE(Globals.szHeader));
         LoadString(Globals.hInstance, STRING_PAGESETUP_FOOTERVALUE, Globals.szFooter,
@@ -252,6 +295,7 @@ void NOTEPAD_LoadSettingsFromRegistry(void)
     }
 
     hFont = CreateFontIndirect(&Globals.lfFont); //위에서 설정한 기본값으로 폰트를 생성
+
 	//Globals.hEdit의 WM_SETFONT에 hFont를 정수형 포인터로 넘겨준다
     SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)hFont, (LPARAM)TRUE);
     if (hFont)
@@ -262,6 +306,7 @@ void NOTEPAD_LoadSettingsFromRegistry(void)
     }
 }
 
+//레지스트리에 DWORD 타입으로 설정값 쓰기
 static BOOL SaveDword(HKEY hKey, LPCTSTR pszValueNameT, DWORD dwValue)
 {	/*
 	 * hKey 레지스트리 키의 pszValueNameT에 DWORD타입의 dwValue을 
@@ -270,8 +315,9 @@ static BOOL SaveDword(HKEY hKey, LPCTSTR pszValueNameT, DWORD dwValue)
     return RegSetValueEx(hKey, pszValueNameT, 0, REG_DWORD, (LPBYTE) &dwValue, sizeof(dwValue)) == ERROR_SUCCESS;
 }
 
+//레지스트리에 STRING 타입으로 설정값 쓰기
 static BOOL SaveString(HKEY hKey, LPCTSTR pszValueNameT, LPCTSTR pszValue)
-{	//문자열 값의 레지스트리를 저장함
+{
     return RegSetValueEx(hKey, pszValueNameT, 0, REG_SZ, (LPBYTE) pszValue, (DWORD) _tcslen(pszValue) * sizeof(*pszValue)) == ERROR_SUCCESS;
 }
 
@@ -280,6 +326,7 @@ static BOOL SaveString(HKEY hKey, LPCTSTR pszValueNameT, LPCTSTR pszValue)
  *           NOTEPAD_SaveSettingsToRegistry
  *
  *  Save settings to registry HKCU\Software\Microsoft\Notepad.
+ * 현재의 설정값들을 레지스트리에 쓰기
  */
 void NOTEPAD_SaveSettingsToRegistry(void)
 {	//현재 Globals가 가지고 있는 설정들을 레지스트리에 저장함
@@ -288,15 +335,15 @@ void NOTEPAD_SaveSettingsToRegistry(void)
 
 	//윈도우 창의 좌표를 main_rect에 저장
     GetWindowRect(Globals.hMainWnd, &Globals.main_rect);
+
 	/*
 	 * 레지스트리를 새로 만들며, 이미 존재하는 키일경우 해당 키를 오픈한다.
-	 * 루트키 HKEY_CURRENT_USER에서 s_szRegistryKey 서브키를 생성하고
+	 * 루트키 HKEY_CURRENT_USER에서 sSzRegistryKey 서브키를 생성하고
 	 * 생성된 키를 hKey가 가리킨다. dwDisposition는 키를 새로 생성했는지, 단순히
 	 * 있던 것을 연 것인지 저장함.
 	 * 성공시 ERROR_SUCCESS를 반환.
-	*/
-
-    if (RegCreateKeyEx(HKEY_CURRENT_USER, s_szRegistryKey,
+	 */
+    if (RegCreateKeyEx(HKEY_CURRENT_USER, sSzRegistryKey,
                        0, NULL, 0, KEY_SET_VALUE, NULL,
                        &hKey, &dwDisposition) == ERROR_SUCCESS)
     {
