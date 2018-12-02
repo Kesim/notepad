@@ -41,7 +41,7 @@
 
 #pragma warning(disable:4996)
 
-static LPCTSTR s_szRegistryKey = _T("Software\\Microsoft\\Notepad");
+static LPCTSTR sSzRegistryKey = _T("Software\\Microsoft\\Notepad");
 
 static LONG HeightFromPointSize(DWORD dwPointSize);
 static DWORD PointSizeFromHeight(LONG lHeight);
@@ -186,26 +186,26 @@ void NOTEPAD_LoadSettingsFromRegistry(void)
     HKEY hKey = NULL;
     HFONT hFont;
     DWORD dwPointSize = 0;
-    INT base_length, dx, dy;
+    INT baseLength, dx, dy;
 
 	/*
 	 * SM_CXSCREEN 값은 주 모니터 화면의 너비(픽셀), SM_CYSCREEN 값은 높이
-	  * 두 값 중 길이가 더 큰쪽을 골라 base_length의 값으로 설정
+	  * 두 값 중 길이가 더 큰쪽을 골라 baseLength의 값으로 설정
 	 */
-    base_length = (GetSystemMetrics(SM_CXSCREEN) > GetSystemMetrics(SM_CYSCREEN)) ?
+    baseLength = (GetSystemMetrics(SM_CXSCREEN) > GetSystemMetrics(SM_CYSCREEN)) ?
                   GetSystemMetrics(SM_CYSCREEN) : GetSystemMetrics(SM_CXSCREEN);
 
-	//base_length값에서 각 비율을 사용해서 dx, dy 값 설정
-    dx = (INT)(base_length * .95);
+	//baseLength값에서 각 비율을 사용해서 dx, dy 값 설정
+    dx = (INT)(baseLength * .95);
     dy = dx * 3 / 4;
 	//사각형 포인터에 x왼쪽, y위, x오른쪽, y밑 좌표 설정
     SetRect(&Globals.main_rect, 0, 0, dx, dy);
 
 	/*
-	 * HKEY_CURRENT_USER의 레지스트리 키에서 s_szRegistryKey 을 찾아 hKey에 반환
+	 * HKEY_CURRENT_USER의 레지스트리 키에서 sSzRegistryKey 을 찾아 hKey에 반환
 	 * 성공 시 ERROR_SUCCESS 반환, 실패 시 에러코드 반환
 	*/
-    if (RegOpenKey(HKEY_CURRENT_USER, s_szRegistryKey, &hKey) == ERROR_SUCCESS)
+    if (RegOpenKey(HKEY_CURRENT_USER, sSzRegistryKey, &hKey) == ERROR_SUCCESS)
     {	//레지스트리가 존재할 경우 저장된 값을 가져옴
         QueryByte(hKey, _T("lfCharSet"), &Globals.lfFont.lfCharSet);
         QueryByte(hKey, _T("lfClipPrecision"), &Globals.lfFont.lfClipPrecision);
@@ -338,12 +338,12 @@ void NOTEPAD_SaveSettingsToRegistry(void)
 
 	/*
 	 * 레지스트리를 새로 만들며, 이미 존재하는 키일경우 해당 키를 오픈한다.
-	 * 루트키 HKEY_CURRENT_USER에서 s_szRegistryKey 서브키를 생성하고
+	 * 루트키 HKEY_CURRENT_USER에서 sSzRegistryKey 서브키를 생성하고
 	 * 생성된 키를 hKey가 가리킨다. dwDisposition는 키를 새로 생성했는지, 단순히
 	 * 있던 것을 연 것인지 저장함.
 	 * 성공시 ERROR_SUCCESS를 반환.
 	 */
-    if (RegCreateKeyEx(HKEY_CURRENT_USER, s_szRegistryKey,
+    if (RegCreateKeyEx(HKEY_CURRENT_USER, sSzRegistryKey,
                        0, NULL, 0, KEY_SET_VALUE, NULL,
                        &hKey, &dwDisposition) == ERROR_SUCCESS)
     {
