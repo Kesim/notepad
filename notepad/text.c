@@ -20,6 +20,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+/* 
+ * text.c modified details
+ *
+ * -modifier : Kang SungMin
+ * -modify period : 18.10.25 ~ 18.10.31
+ * -analyzed details : As connect given file, read or write all text.
+ *  This program can consider encoding type and newline type of text.
+ * -implemented functionality : 'write text of program to file',
+ *  'read text of file to program'
+ */
+
 #include "notepad.h"
 
 static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, DWORD dwAppendLen);
@@ -31,22 +42,32 @@ VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer);
 BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer);
 VOID freeLPWSTRBufferSetNull(LPWSTR pAllocBuffer);
 
+/*
+ * 지정한 텍스트에 입력받은 내용을 추가
+ * -매개변수
+ * ppszText : 기존 텍스트
+ * pdwTextLen : 기존 텍스트 내용의 길이
+ * pszAppendText : 추가할 텍스트
+ * dwAppendLen : 추가할 텍스트 내용의 길이
+ * -반환 : 내용 추가 성공 여부
+ */
 static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, DWORD dwAppendLen)
-{	//기존에 새로운 내용 추가
+{
     LPWSTR pszNewText;
 
-    if (dwAppendLen > 0)
+    if (dwAppendLen > 0) //추가할 내용이 있을 때만 실행
     {
         if (*ppszText) //원래 내용이 있으면
         {
+			//힙 메모리 영역 재 설정(원래 내용의 길이 + 추가 내용의 길이 만큼의 메모리 할당)
             pszNewText = (LPWSTR) HeapReAlloc(GetProcessHeap(), 0, *ppszText, (*pdwTextLen + dwAppendLen) * sizeof(WCHAR));
-        }	//힙 메모리 영역 다시 설정(원래 내용의 길이 + 추가 내용의 길이 만큼의 메모리 할당)
-        else
+        }	
+        else //원래 내용이 없는 경우. 추가할 내용의 길이만큼만 메모리 할당
         {
             pszNewText = (LPWSTR) HeapAlloc(GetProcessHeap(), 0, dwAppendLen * sizeof(WCHAR));
-        }	//원래 내용이 없으므로 추가할 내용의 길이만큼만 메모리 할당
+        }	
 
-        if (!pszNewText) //할당 실패
+        if (!pszNewText) //메모리 할당 실패
             return FALSE;
 
 		//위에서 새로 할당한 메모리의 원래 내용의 메모리주소 이후에 추가 내용의 길이만큼 추가 내용을 복사
@@ -54,14 +75,24 @@ static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, D
         *ppszText = pszNewText; //합한 내용을 가지는 메모리를 가리킴
         *pdwTextLen += dwAppendLen; //원래의 길이에 추가된 길이만큼 합함
     }
+
     return TRUE;
 }
 
+/*
+ * 지정한 파일에 저장된 내용 읽기
+ * -매개변수
+ * hFile : 지정한 파일 핸들러
+ * ppszText : 읽어온 텍스트를 저장할 변수
+ * pdwTextLen : 읽어온 텍스트의 길이를 저장할 변수
+ * pencFile : 파일 인코딩 형식을 입력받을 변수
+ * piEoln : 파일의 개행문자 타입을 입력받을 변수
+ */
 BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *piEoln)
 {
     DWORD dwSize;
     LPBYTE pBytes = NULL;
-    LPWSTR pszText; //유니코드 문자열 포인터 타입
+    LPWSTR pszText;
     LPWSTR pszAllocText = NULL;
     DWORD dwPos, i;
     DWORD dwCharCount;
@@ -69,7 +100,7 @@ BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, 
     int encFile = ENCODING_ANSI; //기본 유니코드 종류 값으로 사용
     int iCodePage = 0;
     WCHAR szCrlf[2] = {'\r', '\n'};
-    DWORD adwEolnCount[3] = {0, 0, 0};
+    DWORD adwEolnCount[3] = {0, 0, 0}; //각 개행문자의 갯수
 
     *ppszText = NULL;
     *pdwTextLen = 0;
@@ -264,6 +295,10 @@ BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, 
     return TRUE;
 }
 
+/*
+ * 지정한 파일에 입력받은 인코딩 형식으로 텍스트 쓰기
+ * WriteText()에서 호출되어 사용되며 실제로 쓰는 역할
+*/
 static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile)
 {
     LPBYTE pBytes = NULL;
@@ -364,6 +399,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
     return TRUE;
 }
 
+//지정한 파일에 입력받은 인코딩 형식, 개행문자 타입으로 텍스트 쓰기
 BOOL WriteText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile, int iEoln)
 {
     WCHAR wcBom;
