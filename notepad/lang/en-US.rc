@@ -101,7 +101,7 @@ BEGIN
     PUSHBUTTON "Help", IDHELP, 8, 170, 50, 14
     DEFPUSHBUTTON "OK", IDOK, 198, 170, 50, 14, BS_PUSHBUTTON
     PUSHBUTTON "Cancel", IDCANCEL, 254, 170, 50, 14
-    PUSHBUTTON "P&rinter...", psh3, 310, 170, 50, 14
+    PUSHBUTTON "P&rinter...", psh1, 310, 170, 50, 14
 END
 
 /* Dialog 'Encoding' */
