@@ -21,6 +21,9 @@ Feature: can change language manually
 ***
 No need to further work to complie.  
 So easy to build.
+But because of notepad.vcxproj you may fail to compile.
+Then you need to try compile several time. 
+You also need to close IDE and then re-open it.
 # Contribute
 ***
 wanttobenno : original writer  
