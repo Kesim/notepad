@@ -262,16 +262,16 @@ static VOID NOTEPAD_FindTerm(VOID)
 static VOID NOTEPAD_InitData(VOID)
 {
     LPTSTR p = Globals.szFilter;
-    static const TCHAR txt_files[] = _T("*.txt");
-    static const TCHAR all_files[] = _T("*.*");
+    static const TCHAR txtFiles[] = _T("*.txt");
+    static const TCHAR allFiles[] = _T("*.*");
 
     p += LoadString(Globals.hInstance, STRING_TEXT_FILES_TXT, p, MAX_STRING_LEN) + 1;
-    _tcscpy(p, txt_files);
-    p += ARRAY_SIZE(txt_files);
+    _tcscpy(p, txtFiles);
+    p += ARRAY_SIZE(txtFiles);
 
     p += LoadString(Globals.hInstance, STRING_ALL_FILES, p, MAX_STRING_LEN) + 1;
-    _tcscpy(p, all_files);
-    p += ARRAY_SIZE(all_files);
+    _tcscpy(p, allFiles);
+    p += ARRAY_SIZE(allFiles);
     *p = '\0';
     Globals.find.lpstrFindWhat = NULL;
 
@@ -497,7 +497,7 @@ static int AlertFileDoesNotExist(LPCTSTR szFileName)
 
 static BOOL HandleCommandLine(LPTSTR cmdline)
 {
-    BOOL opt_print = FALSE;
+    BOOL optPrint = FALSE;
 
     while (*cmdline == _T(' ') || *cmdline == _T('-') || *cmdline == _T('/'))
     {
@@ -513,7 +513,7 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
         {
             case 'p':
             case 'P':
-                opt_print = TRUE;
+                optPrint = TRUE;
                 break;
         }
     }
@@ -521,8 +521,8 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
     if (*cmdline)
     {
         /* file name is passed in the command line */
-        LPCTSTR file_name = NULL;
-        BOOL file_exists = FALSE;
+        LPCTSTR fileName = NULL;
+        BOOL fileExists = FALSE;
         TCHAR buf[MAX_PATH];
 
         if (cmdline[0] == _T('"'))
@@ -531,10 +531,10 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
             cmdline[lstrlen(cmdline) - 1] = 0;
         }
 
-        file_name = cmdline;
-        if (FileExists(file_name))
+        fileName = cmdline;
+        if (FileExists(fileName))
         {
-            file_exists = TRUE;
+            fileExists = TRUE;
         }
         else if (!HasFileExtension(cmdline))
         {
@@ -543,22 +543,22 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
             /* try to find file with ".txt" extension */
             if (!_tcscmp(txt, cmdline + _tcslen(cmdline) - _tcslen(txt)))
             {
-                file_exists = FALSE;
+                fileExists = FALSE;
             }
             else
             {
                 _tcsncpy(buf, cmdline, MAX_PATH - _tcslen(txt) - 1);
                 _tcscat(buf, txt);
-                file_name = buf;
-                file_exists = FileExists(file_name);
+                fileName = buf;
+                fileExists = FileExists(fileName);
             }
         }
 
-        if (file_exists)
+        if (fileExists)
         {
-            DoOpenFile(file_name);
+            DoOpenFile(fileName);
             InvalidateRect(Globals.hMainWnd, NULL, FALSE);
-            if (opt_print)
+            if (optPrint)
             {
                 DIALOG_FilePrint();
                 return FALSE;
@@ -566,9 +566,9 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
         }
         else
         {
-            switch (AlertFileDoesNotExist(file_name)) {
+            switch (AlertFileDoesNotExist(fileName)) {
             case IDYES:
-                DoOpenFile(file_name);
+                DoOpenFile(fileName);
                 break;
 
             case IDNO:

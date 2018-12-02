@@ -42,10 +42,10 @@
 
 LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam); // main.c 에 구현되어 있음. DoCreateEditWindow 내부에서 사용.
 
-static const TCHAR helpfile[] = _T("notepad.hlp"); // 도움말 파일 // help filename
-static const TCHAR empty_str[] = _T(""); // 빈 스트링. 에딧 컨트롤의 내용을 비울 때 사용. // empty string 
+static const TCHAR helpFile[] = _T("notepad.hlp"); // 도움말 파일 // help filename
+static const TCHAR emptyStr[] = _T(""); // 빈 스트링. 에딧 컨트롤의 내용을 비울 때 사용. // empty string 
 static const TCHAR szDefaultExt[] = _T("txt"); // 기본 확장자 // default extension
-static const TCHAR txt_files[] = _T("*.txt"); // 모든 텍스트 파일 // All text files
+static const TCHAR txtFiles[] = _T("*.txt"); // 모든 텍스트 파일 // All text files
 
 static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -134,39 +134,39 @@ static void AlertFileNotFound(LPCTSTR szFileName)
 static int AlertFileNotSaved(LPCTSTR szFileName) 
 {
 	TCHAR szDialogTitle[MAX_STRING_LEN]; 
-	LPCTSTR filename;
+	LPCTSTR fileName;
 	int dialogResult;
 
 	if (szFileName[0] == '\0') 
 	{
-		filename = szFileName;
+		fileName = szFileName;
 	}
 	else 
 	{
-		filename = szDialogTitle;
+		fileName = szDialogTitle;
 	}
 	LoadString(Globals.hInstance, STRING_UNTITLED, szDialogTitle, ARRAY_SIZE(szDialogTitle));
 
-	dialogResult = DIALOG_StringMsgBox(Globals.hMainWnd, STRING_NOTSAVED, filename, MB_ICONQUESTION | MB_YESNOCANCEL);
+	dialogResult = DIALOG_StringMsgBox(Globals.hMainWnd, STRING_NOTSAVED, fileName, MB_ICONQUESTION | MB_YESNOCANCEL);
 	return dialogResult;
 }
 
 static void AlertPrintError(void) 
 {
 	TCHAR szUntitled[MAX_STRING_LEN];
-	TCHAR *filename;
+	TCHAR *fileName;
 
 	if (Globals.szFileName[0] == '\0') 
 	{
-		filename = Globals.szFileName;
+		fileName = Globals.szFileName;
 	}
 	else 
 	{
-		filename = szUntitled;
+		fileName = szUntitled;
 	}
 	LoadString(Globals.hInstance, STRING_UNTITLED, szUntitled, ARRAY_SIZE(szUntitled));
 
-	DIALOG_StringMsgBox(Globals.hMainWnd, STRING_PRINTERROR, filename, MB_ICONEXCLAMATION | MB_OK);
+	DIALOG_StringMsgBox(Globals.hMainWnd, STRING_PRINTERROR, fileName, MB_ICONEXCLAMATION | MB_OK);
 }
 
 /**
@@ -188,12 +188,12 @@ BOOL FileExists(LPCTSTR szFilename)
 // 확장자를 가지고 있는지 (인수: 파일이름)
 BOOL HasFileExtension(LPCTSTR szFilename) 
 {
-	LPCTSTR s;
+	LPCTSTR str;
 
 	// 경로에서 파일이름만 추출(뒤에서부터 해당 문자 만날때까지 parsing  // only parse filename
-	s = _tcsrchr(szFilename, _T('\\')); 
-	if (s)
-		szFilename = s;
+	str = _tcsrchr(szFilename, _T('\\')); 
+	if (str)
+		szFilename = str;
 
 	// 파일이름에서 확장자만 추출 // only extract extension
 	return _tcsrchr(szFilename, _T('.')) != NULL; 
@@ -389,7 +389,7 @@ BOOL DoCloseFile(VOID)
 		}
 	}
 
-	SetFileName(empty_str);
+	SetFileName(emptyStr);
 	UpdateWindowCaption(TRUE); 
 
 	return TRUE;
@@ -462,7 +462,7 @@ VOID DIALOG_FileNew(VOID)
 {
 	if (DoCloseFile()) 
 	{
-		SetWindowText(Globals.hEdit, empty_str);
+		SetWindowText(Globals.hEdit, emptyStr);
 		SendMessage(Globals.hEdit, EM_EMPTYUNDOBUFFER, 0, 0);
 		SetFocus(Globals.hEdit);
 		NOTEPAD_EnableSearchMenu();
@@ -478,7 +478,7 @@ VOID DIALOG_FileOpen(VOID)
 	ZeroMemory(&openfilename, sizeof(openfilename));
 
 	if (isNewFile)
-		_tcscpy(szPath, txt_files);
+		_tcscpy(szPath, txtFiles);
 	else
 		_tcscpy(szPath, Globals.szFileName);
 
@@ -584,7 +584,7 @@ BOOL DIALOG_FileSaveAs(VOID)
 	ZeroMemory(&saveAsFileInfo, sizeof(saveAsFileInfo));
 
 	if (isNewFile)
-		_tcscpy(szPath, txt_files);
+		_tcscpy(szPath, txtFiles);
 	else
 		_tcscpy(szPath, Globals.szFileName);
 
@@ -707,7 +707,7 @@ WORD GetMaxPage(VOID)
 // 파일 프린트
 VOID DIALOG_FilePrint(VOID) 
 {
-	static const TCHAR times_new_roman[] = _T("Times New Roman");
+	static const TCHAR timesNewRoman[] = _T("Times New Roman");
 	DOCINFO printDocInfo;
 	TEXTMETRIC tmPhyFont;
 	PRINTDLG printer;
@@ -732,7 +732,7 @@ VOID DIALOG_FilePrint(VOID)
 	hdrFont.lfClipPrecision = CLIP_DEFAULT_PRECIS;
 	hdrFont.lfQuality = PROOF_QUALITY; // 출력 품질 지정
 	hdrFont.lfPitchAndFamily = VARIABLE_PITCH | FF_ROMAN; // 글꼴 패밀리를 지정합니다
-	_tcscpy(hdrFont.lfFaceName, times_new_roman); // 서체 이름 지정
+	_tcscpy(hdrFont.lfFaceName, timesNewRoman); // 서체 이름 지정
 
 	font = CreateFontIndirect(&hdrFont); // LOGFONT 구조체를 바탕으로 폰트 생성
 
@@ -1316,7 +1316,7 @@ VOID DIALOG_ViewStatusBar(VOID)
 
 VOID DIALOG_HelpContents(VOID) 
 {
-	WinHelp(Globals.hMainWnd, helpfile, HELP_INDEX, 0);
+	WinHelp(Globals.hMainWnd, helpFile, HELP_INDEX, 0);
 }
 
 VOID DIALOG_HelpAboutNotepad(VOID) 
