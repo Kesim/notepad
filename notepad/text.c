@@ -169,6 +169,7 @@ BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, 
 
 		case ENCODING_ANSI:
 		case ENCODING_UTF8:
+		default :
 			if (encFile == ENCODING_ANSI)
 				iCodePage = CP_ACP;
 			else if (encFile == ENCODING_UTF8)
