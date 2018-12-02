@@ -623,13 +623,14 @@ BOOL DIALOG_FileSaveAs(VOID)
 
 WORD GetMaxPage(VOID)
 {
+	const int defaultMargins = 300;
 	TEXTMETRIC tmPhyFont;
 	PRINTDLG printer;
 	SIZE szMetric; 
 	DWORD size;
 	LPTSTR pTextBuf;
 	RECT rcPrintRect;
-	const int defaultMargins = 300;
+	
 	int border;
 	int xLeft, yTop, pagecount, dopage;
 	unsigned int i;
@@ -707,7 +708,9 @@ WORD GetMaxPage(VOID)
 // 파일 프린트
 VOID DIALOG_FilePrint(VOID) 
 {
-	static const TCHAR times_new_roman[] = _T("Times New Roman");
+	static const TCHAR timesNewRoman[] = _T("Times New Roman");
+	static const int defaultMargins = 300;
+	static const WORD notSelected = (WORD)-1;
 	DOCINFO printDocInfo;
 	TEXTMETRIC tmPhyFont;
 	PRINTDLG printer;
@@ -717,7 +720,6 @@ VOID DIALOG_FilePrint(VOID)
 	DWORD textLength;
 	LPTSTR pTextBuf;
 	RECT rcPrintRect;
-	const int defaultMargins = 300;
 	int border;
 	int xLeft, yTop, pagecount, dopage, copycount;
 	int useDevModeCopies;
@@ -732,7 +734,7 @@ VOID DIALOG_FilePrint(VOID)
 	hdrFont.lfClipPrecision = CLIP_DEFAULT_PRECIS;
 	hdrFont.lfQuality = PROOF_QUALITY; // 출력 품질 지정
 	hdrFont.lfPitchAndFamily = VARIABLE_PITCH | FF_ROMAN; // 글꼴 패밀리를 지정합니다
-	_tcscpy(hdrFont.lfFaceName, times_new_roman); // 서체 이름 지정
+	_tcscpy(hdrFont.lfFaceName, timesNewRoman); // 서체 이름 지정
 
 	font = CreateFontIndirect(&hdrFont); // LOGFONT 구조체를 바탕으로 폰트 생성
 
@@ -752,9 +754,9 @@ VOID DIALOG_FilePrint(VOID)
 
 	printer.nFromPage = 0;
 	printer.nMinPage = 1;
-	// FIXME : 최대 출력 장수 계산 못함
+	
 	printer.nToPage = GetMaxPage();
-	printer.nMaxPage = (WORD)-1;
+	printer.nMaxPage = notSelected;
 
 	useDevModeCopies = PD_USEDEVMODECOPIES;
 	printer.nCopies = (WORD)useDevModeCopies;
