@@ -1406,7 +1406,7 @@ static UINT_PTR CALLBACK DIALOG_PAGESETUP_Hook(HWND hDlg, UINT msg, WPARAM wPara
 
 			case IDHELP:
 			{
-				system("cmd /c start https://github.com/Kesim/notepad");
+				system("cmd /c start https://support.microsoft.com/en-us/help/4009791/windows-10-changing-header-footer-commands-in-notepad");
 				return TRUE;
 			}
 
