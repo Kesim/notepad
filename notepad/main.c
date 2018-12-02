@@ -25,11 +25,12 @@
 #include "notepad.h"
 
 #include <strsafe.h>
+#pragma warning(disable:4996)
 
 NOTEPAD_GLOBALS Globals;
 static ATOM aFINDMSGSTRING;
 
-VOID NOTEPAD_EnableSearchMenu()
+VOID NOTEPAD_EnableSearchMenu(VOID)
 {
     EnableMenuItem(Globals.hMenu, CMD_SEARCH,
                    MF_BYCOMMAND | ((GetWindowTextLength(Globals.hEdit) == 0) ? MF_DISABLED | MF_GRAYED : MF_ENABLED));
