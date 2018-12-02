@@ -37,10 +37,10 @@ static BOOL Append(LPWSTR *ppszText, DWORD *pdwTextLen, LPCWSTR pszAppendText, D
 BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, int *piEoln);
 static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile);
 BOOL WriteText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile, int iEoln);
-BOOL freeLPBYTEBuffer(LPBYTE pAllocBuffer);
-VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer);
-BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer);
-VOID freeLPWSTRBufferSetNull(LPWSTR pAllocBuffer);
+static BOOL freeLPBYTEBuffer(LPBYTE pAllocBuffer);
+static VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer);
+static BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer);
+static VOID freeLPWSTRBufferSetNull(LPWSTR pAllocBuffer);
 
 /*
  * 지정한 텍스트에 입력받은 내용을 추가
@@ -96,7 +96,7 @@ BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, 
     LPWSTR pszAllocText = NULL;
     DWORD dwPos, i;
     DWORD dwCharCount;
-    BYTE b = 0;
+    BYTE byteTemp = 0;
     int encFile = ENCODING_ANSI; //기본 유니코드 종류 값으로 사용
     int iCodePage = 0;
     WCHAR szCrlf[2] = {'\r', '\n'};
@@ -156,9 +156,9 @@ BOOL ReadText(HANDLE hFile, LPWSTR *ppszText, DWORD *pdwTextLen, int *pencFile, 
 			//바이트 단위로 2개씩 앞뒤 순서를 바꿈. 결과적으로 dwPos는 내용 끝의 위치를 가리킴
 			for (i = dwPos; i < dwSize-1; i += 2)
 			{
-				b = pBytes[i+0];
+				byteTemp = pBytes[i+0];
 				pBytes[i+0] = pBytes[i+1];
-				pBytes[i+1] = b;
+				pBytes[i+1] = byteTemp;
 			}
 			/* fall through */
 
@@ -310,8 +310,7 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
     UINT iCodePage = 0;
     DWORD dwDummy, i;
     int iBufferSize, iRequiredBytes;
-    BYTE b; //UNICODE_BE에서 바이트를 교환할 때 사용할 공간
-	//todo : BYTE b; 의 용도가 temp이므로 의미있는 변수명으로 바꿀 수 있음
+    BYTE byteTemp; //UNICODE_BE에서 바이트를 교환할 때 사용할 공간
 
     while(dwPos < dwTextLen)
     {
@@ -331,9 +330,9 @@ static BOOL WriteEncodedText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int
                 memcpy(buffer, &pszText[dwPos], dwByteCount); //버퍼에 현재 위치의 내용 부터 바이트 갯수만큼 복사
                 for (i = 0; i < dwByteCount; i += 2) //2개씩 앞뒤로 자리를 바꿈
                 {
-                    b = buffer[i+0];
+					byteTemp = buffer[i+0];
                     buffer[i+0] = buffer[i+1];
-                    buffer[i+1] = b;
+                    buffer[i+1] = byteTemp;
                 }
                 pBytes = (LPBYTE) &buffer[dwPos]; //유니코드에 맞게 변경된 내용을 가리킴
                 dwPos += dwByteCount / sizeof(WCHAR); //현재 위치 + 현재위치에서부터 내용의 끝까지 = 내용의 끝 위치
@@ -473,7 +472,7 @@ BOOL WriteText(HANDLE hFile, LPCWSTR pszText, DWORD dwTextLen, int encFile, int 
     return TRUE;
 }
 
-BOOL freeLPBYTEBuffer(LPBYTE pAllocBuffer)
+static BOOL freeLPBYTEBuffer(LPBYTE pAllocBuffer)
 {
 	if (pAllocBuffer)
 	{
@@ -485,7 +484,7 @@ BOOL freeLPBYTEBuffer(LPBYTE pAllocBuffer)
 	return FALSE;
 }
 
-VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer)
+static VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer)
 {
 	if(freeLPBYTEBuffer(pAllocBuffer))
 		pAllocBuffer = NULL;
@@ -493,7 +492,7 @@ VOID freeLPBYTEBufferSetNull(LPBYTE pAllocBuffer)
 	return;
 }
 
-BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer)
+static BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer)
 {
 	if (pAllocBuffer)
 	{
@@ -505,7 +504,7 @@ BOOL freeLPWSTRBuffer(LPWSTR pAllocBuffer)
 	return FALSE;
 }
 
-VOID freeLPWSTRBufferSetNull(LPWSTR pAllocBuffer)
+static VOID freeLPWSTRBufferSetNull(LPWSTR pAllocBuffer)
 {
 	if (freeLPWSTRBuffer(pAllocBuffer))
 		pAllocBuffer = NULL;
