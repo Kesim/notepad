@@ -160,18 +160,18 @@ BEGIN
     STRING_UNTITLED "제목 없음"
     STRING_ALL_FILES "모든 파일 (*.*)"
     STRING_TEXT_FILES_TXT "텍스트 문서 (*.txt)"
-    STRING_TOOLARGE "File '%s' is too large for notepad.\n \
-Please use a different editor."
-    STRING_NOTEXT "You didn't enter any text. \
-\nPlease type something and try again"
-    STRING_DOESNOTEXIST "File '%s'\ndoes not exist\n\n \
-Do you want to create a new file ?"
-    STRING_NOTSAVED "File '%s'\nhas been modified\n\n \
-Would you like to save the changes ?"
-    STRING_NOTFOUND "'%s' can not be found."
-    STRING_OUT_OF_MEMORY "Not enough memory to complete this \
-task. \nClose one or more applications to increase the amount of \nfree memory."
-    STRING_CANNOTFIND "Cannot find '%s'"
+    STRING_TOOLARGE "파일 '%s' 이 메모장에서 열기에 너무 큽니다.\n \
+다른 편집기를 사용하십시요."
+    STRING_NOTEXT "아무것도 입력하지 않았습니다. \
+\n입력 후 다시 시도하십시요."
+    STRING_DOESNOTEXIST "파일 '%s'\n이 존재하지 않습니다\n\n \
+새로운 파일을 만드시겠습니까 ?"
+    STRING_NOTSAVED "파일 '%s'\n이 수정되었습니다\n\n \
+변경을 저장하시겠습니까 ?"
+    STRING_NOTFOUND "'%s' 을 찾을 수 없습니다."
+    STRING_OUT_OF_MEMORY "이 작업을 처리하기에 메모리가 너무 적습니다. \
+\n여유 메모리를 위해 하나 이상의 어플리케이션을 닫아주십시요."
+    STRING_CANNOTFIND "'%s' 을 찾을 수 없습니다"
     STRING_ANSI "ANSI"
     STRING_UNICODE "Unicode"
     STRING_UNICODE_BE "Unicode (big endian)"
@@ -180,7 +180,7 @@ task. \nClose one or more applications to increase the amount of \nfree memory."
     STRING_LF "Unix (LF)"
     STRING_CR "Mac (CR)"
     STRING_LINE_COLUMN "Line %d, column %d"
-    STRING_PRINTERROR "Cannot print the file '%s'.\n\nMake sure that the printer is turned on and is configured properly."
+    STRING_PRINTERROR "'%s' 을 출력할 수 없습니다.\n\n프린터가 켜져있고 제대로 설정되어 있는지 확인하십시요."
 
     STRING_TEXT_DOCUMENT "Text Document"
 END
