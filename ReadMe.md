@@ -1,4 +1,4 @@
-# PROJECT TITLE
+﻿# PROJECT TITLE
 ***
 Identical functionality with windows notepad.
 # Motivation

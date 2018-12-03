@@ -30,6 +30,14 @@
 NOTEPAD_GLOBALS Globals;
 static ATOM aFINDMSGSTRING;
 
+VOID ShowAlert(TCHAR szResource[], int size, TCHAR szText[], int textSize, FINDREPLACE* pFindReplace)
+{
+	LoadString(Globals.hInstance, STRING_CANNOTFIND, szResource, size);
+	_sntprintf(szText, textSize, szResource, pFindReplace->lpstrFindWhat);
+	LoadString(Globals.hInstance, STRING_NOTEPAD, szResource, ARRAY_SIZE(szResource));
+	MessageBox(Globals.hFindReplaceDlg, szText, szResource, MB_OK);
+}
+
 VOID NOTEPAD_EnableSearchMenu(VOID)
 {
     EnableMenuItem(Globals.hMenu, CMD_SEARCH,
@@ -216,10 +224,7 @@ BOOL NOTEPAD_FindNext(FINDREPLACE *pFindReplace, BOOL bReplace, BOOL bShowAlert)
         /* Can't find target */
         if (bShowAlert)
         {
-            LoadString(Globals.hInstance, STRING_CANNOTFIND, szResource, ARRAY_SIZE(szResource));
-            _sntprintf(szText, ARRAY_SIZE(szText), szResource, pFindReplace->lpstrFindWhat);
-            LoadString(Globals.hInstance, STRING_NOTEPAD, szResource, ARRAY_SIZE(szResource));
-            MessageBox(Globals.hFindReplaceDlg, szText, szResource, MB_OK);
+			ShowAlert(szResource, ARRAY_SIZE(szResource), szText, ARRAY_SIZE(szText), pFindReplace);            
         }
         bSuccess = FALSE;
     }
@@ -256,23 +261,27 @@ static VOID NOTEPAD_FindTerm(VOID)
     Globals.hFindReplaceDlg = NULL;
 }
 
+LPTSTR myStrCat(HINSTANCE instance, UINT id, LPTSTR str, const TCHAR info[], UINT arraySize)
+{
+	str += LoadString(instance, STRING_TEXT_FILES_TXT, str, MAX_STRING_LEN) + 1;
+	_tcscpy(str, info);
+	str += arraySize;
+	return str;
+}
+
 /***********************************************************************
  * Data Initialization
  */
 static VOID NOTEPAD_InitData(VOID)
 {
     LPTSTR p = Globals.szFilter;
-    static const TCHAR txtFiles[] = _T("*.txt");
-    static const TCHAR allFiles[] = _T("*.*");
+    static const TCHAR txt_files[] = _T("*.txt");
+    static const TCHAR all_files[] = _T("*.*");
+	p = myStrCat(Globals.hInstance, STRING_TEXT_FILES_TXT, p, txt_files, ARRAY_SIZE(txt_files));
+	p = myStrCat(Globals.hInstance, STRING_ALL_FILES, p, all_files, ARRAY_SIZE(all_files));
 
-    p += LoadString(Globals.hInstance, STRING_TEXT_FILES_TXT, p, MAX_STRING_LEN) + 1;
-    _tcscpy(p, txtFiles);
-    p += ARRAY_SIZE(txtFiles);
-
-    p += LoadString(Globals.hInstance, STRING_ALL_FILES, p, MAX_STRING_LEN) + 1;
-    _tcscpy(p, allFiles);
-    p += ARRAY_SIZE(allFiles);
     *p = '\0';
+
     Globals.find.lpstrFindWhat = NULL;
 
     Globals.hDevMode = NULL;
@@ -579,7 +588,47 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
 
     return TRUE;
 }
+/*
+	Initiate Global variable
+*/
+void InitGobal(HINSTANCE hInstance)
+{
+	ZeroMemory(&Globals, sizeof(Globals));
+	Globals.hInstance = hInstance;//이 프로그램의 인스턴스 핸들
+}
 
+/*
+	Initiate Wndclass with instance and className
+*/
+void InitWndClass(WNDCLASSEX* wndclass,HINSTANCE hInstance, TCHAR className[])
+{
+	ZeroMemory(wndclass, sizeof(*wndclass));
+	wndclass->cbSize = sizeof(*wndclass);		//윈도우 구조체 크기
+	wndclass->lpfnWndProc = NOTEPAD_WndProc;	//문제 발생시 함수 콜
+	wndclass->hInstance = Globals.hInstance;	//프로그램 번호
+	wndclass->hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_NPICON));//아이콘
+	wndclass->hCursor = LoadCursor(0, IDC_ARROW); //커서 모양
+	wndclass->hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);//배경색
+	wndclass->lpszMenuName = MAKEINTRESOURCE(MAIN_MENU);//메뉴 리소스
+	wndclass->lpszClassName = className;//이름
+	wndclass->hIconSm = (HICON)LoadImage(hInstance, //작은 아이콘
+		MAKEINTRESOURCE(IDI_NPICON),
+		IMAGE_ICON,
+		16,
+		16,
+		0);
+}
+
+/*
+	Check info region is in the main.
+*/
+int IsInMainWnd(RECT main, RECT info)
+{
+	return ! (main.left >= info.right ||
+		main.top >= info.bottom ||
+		main.right < info.left ||
+		main.bottom < info.top);
+}
 /***********************************************************************
  *
  *           WinMain
@@ -610,25 +659,11 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
 
     aFINDMSGSTRING = (ATOM)RegisterWindowMessage(FINDMSGSTRING);
 
-    ZeroMemory(&Globals, sizeof(Globals));
-    Globals.hInstance = hInstance; //이 프로그램의 인스턴스 핸들
-    NOTEPAD_LoadSettingsFromRegistry(); //레지스트리에서 설정값 가져옴 --> setting.c
+	InitGobal(hInstance);
+    NOTEPAD_LoadSettingsFromRegistry();//레지스트리에서 설정값 가져옴 --> setting.c
 
-    ZeroMemory(&wndclass, sizeof(wndclass));
-    wndclass.cbSize = sizeof(wndclass); //윈도우 구조체 크기
-    wndclass.lpfnWndProc = NOTEPAD_WndProc; //문제 발생시 함수 콜
-    wndclass.hInstance = Globals.hInstance; //프로그램 번호
-    wndclass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_NPICON)); //아이콘
-    wndclass.hCursor = LoadCursor(0, IDC_ARROW); //커서 모양
-    wndclass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); //배경색
-    wndclass.lpszMenuName = MAKEINTRESOURCE(MAIN_MENU); //메뉴 리소스
-    wndclass.lpszClassName = className; //이름
-    wndclass.hIconSm = (HICON)LoadImage(hInstance, //작은 아이콘
-                                        MAKEINTRESOURCE(IDI_NPICON),
-                                        IMAGE_ICON,
-                                        16,
-                                        16,
-                                        0);
+	InitWndClass(&wndclass, hInstance, className);
+
 
     if (!RegisterClassEx(&wndclass)) return FALSE; //윈도우에 등록이 안되있으면 false
 
@@ -640,10 +675,8 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
 
     x = Globals.main_rect.left;
     y = Globals.main_rect.top;
-    if (Globals.main_rect.left >= info.rcWork.right ||
-        Globals.main_rect.top >= info.rcWork.bottom ||
-        Globals.main_rect.right < info.rcWork.left ||
-        Globals.main_rect.bottom < info.rcWork.top)
+    
+	if (!IsInMainWnd(Globals.main_rect,info.rcWork))
         x = y = CW_USEDEFAULT;
 
     Globals.hMainWnd = CreateWindow(className, //생성할 클래스
