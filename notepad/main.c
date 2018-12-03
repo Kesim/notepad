@@ -25,6 +25,7 @@
 #include "notepad.h"
 
 #include <strsafe.h>
+#pragma warning(disable:4996)
 
 NOTEPAD_GLOBALS Globals;
 static ATOM aFINDMSGSTRING;
@@ -37,8 +38,7 @@ VOID ShowAlert(TCHAR szResource[], int size, TCHAR szText[], int textSize, FINDR
 	MessageBox(Globals.hFindReplaceDlg, szText, szResource, MB_OK);
 }
 
-
-VOID NOTEPAD_EnableSearchMenu()
+VOID NOTEPAD_EnableSearchMenu(VOID)
 {
     EnableMenuItem(Globals.hMenu, CMD_SEARCH,
                    MF_BYCOMMAND | ((GetWindowTextLength(Globals.hEdit) == 0) ? MF_DISABLED | MF_GRAYED : MF_ENABLED));
@@ -65,7 +65,7 @@ VOID SetFileName(LPCTSTR szFileName)
  *
  *  All handling of main menu events
  */
-static int NOTEPAD_MenuCommand(WPARAM wParam)
+static int NOTEPAD_MenuCommand(WPARAM wParam) //단축키 입력 처리
 {
     switch (wParam)
     {
@@ -279,6 +279,7 @@ static VOID NOTEPAD_InitData(VOID)
     static const TCHAR all_files[] = _T("*.*");
 	p = myStrCat(Globals.hInstance, STRING_TEXT_FILES_TXT, p, txt_files, ARRAY_SIZE(txt_files));
 	p = myStrCat(Globals.hInstance, STRING_ALL_FILES, p, all_files, ARRAY_SIZE(all_files));
+
     *p = '\0';
 
     Globals.find.lpstrFindWhat = NULL;
@@ -322,12 +323,12 @@ LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 { 
     switch (msg)
     {
-        case WM_KEYDOWN:
+        case WM_KEYDOWN: //키를 누르거나 땠을 때
         case WM_KEYUP:
         {
             switch (wParam)
             {
-                case VK_UP:
+                case VK_UP: //4방향키를 눌렀을 때
                 case VK_DOWN:
                 case VK_LEFT:
                 case VK_RIGHT:
@@ -340,7 +341,7 @@ LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
-        case WM_LBUTTONUP:
+        case WM_LBUTTONUP: //마우스 좌클릭을 땟을 때
         {
             DIALOG_StatusBarUpdateCaretPos();
             break;
@@ -376,7 +377,7 @@ NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         /*MessageBox(Globals.hMainWnd, "Empty clipboard", "Debug", MB_ICONEXCLAMATION);*/
         break;
 
-    case WM_CLOSE:
+    case WM_CLOSE: //윈도우 창을 닫기 직전. Alt+F4 또는 닫기 버튼을 누르는 경우
         if (DoCloseFile()) {
             if (Globals.hFont)
                 DeleteObject(Globals.hFont);
@@ -394,7 +395,7 @@ NOTEPAD_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         break;
 
-    case WM_DESTROY:
+    case WM_DESTROY: //윈도우 창이 파괴됨
         SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)Globals.EditProc);
         NOTEPAD_SaveSettingsToRegistry();
         PostQuitMessage(0);
@@ -505,7 +506,7 @@ static int AlertFileDoesNotExist(LPCTSTR szFileName)
 
 static BOOL HandleCommandLine(LPTSTR cmdline)
 {
-    BOOL opt_print = FALSE;
+    BOOL optPrint = FALSE;
 
     while (*cmdline == _T(' ') || *cmdline == _T('-') || *cmdline == _T('/'))
     {
@@ -521,7 +522,7 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
         {
             case 'p':
             case 'P':
-                opt_print = TRUE;
+                optPrint = TRUE;
                 break;
         }
     }
@@ -529,8 +530,8 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
     if (*cmdline)
     {
         /* file name is passed in the command line */
-        LPCTSTR file_name = NULL;
-        BOOL file_exists = FALSE;
+        LPCTSTR fileName = NULL;
+        BOOL fileExists = FALSE;
         TCHAR buf[MAX_PATH];
 
         if (cmdline[0] == _T('"'))
@@ -539,10 +540,10 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
             cmdline[lstrlen(cmdline) - 1] = 0;
         }
 
-        file_name = cmdline;
-        if (FileExists(file_name))
+        fileName = cmdline;
+        if (FileExists(fileName))
         {
-            file_exists = TRUE;
+            fileExists = TRUE;
         }
         else if (!HasFileExtension(cmdline))
         {
@@ -551,22 +552,22 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
             /* try to find file with ".txt" extension */
             if (!_tcscmp(txt, cmdline + _tcslen(cmdline) - _tcslen(txt)))
             {
-                file_exists = FALSE;
+                fileExists = FALSE;
             }
             else
             {
                 _tcsncpy(buf, cmdline, MAX_PATH - _tcslen(txt) - 1);
                 _tcscat(buf, txt);
-                file_name = buf;
-                file_exists = FileExists(file_name);
+                fileName = buf;
+                fileExists = FileExists(fileName);
             }
         }
 
-        if (file_exists)
+        if (fileExists)
         {
-            DoOpenFile(file_name);
+            DoOpenFile(fileName);
             InvalidateRect(Globals.hMainWnd, NULL, FALSE);
-            if (opt_print)
+            if (optPrint)
             {
                 DIALOG_FilePrint();
                 return FALSE;
@@ -574,9 +575,9 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
         }
         else
         {
-            switch (AlertFileDoesNotExist(file_name)) {
+            switch (AlertFileDoesNotExist(fileName)) {
             case IDYES:
-                DoOpenFile(file_name);
+                DoOpenFile(fileName);
                 break;
 
             case IDNO:
@@ -593,7 +594,7 @@ static BOOL HandleCommandLine(LPTSTR cmdline)
 void InitGobal(HINSTANCE hInstance)
 {
 	ZeroMemory(&Globals, sizeof(Globals));
-	Globals.hInstance = hInstance;
+	Globals.hInstance = hInstance;//이 프로그램의 인스턴스 핸들
 }
 
 /*
@@ -602,15 +603,15 @@ void InitGobal(HINSTANCE hInstance)
 void InitWndClass(WNDCLASSEX* wndclass,HINSTANCE hInstance, TCHAR className[])
 {
 	ZeroMemory(wndclass, sizeof(*wndclass));
-	wndclass->cbSize = sizeof(*wndclass);
-	wndclass->lpfnWndProc = NOTEPAD_WndProc;
-	wndclass->hInstance = Globals.hInstance;
-	wndclass->hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_NPICON));
-	wndclass->hCursor = LoadCursor(0, IDC_ARROW);
-	wndclass->hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	wndclass->lpszMenuName = MAKEINTRESOURCE(MAIN_MENU);
-	wndclass->lpszClassName = className;
-	wndclass->hIconSm = (HICON)LoadImage(hInstance,
+	wndclass->cbSize = sizeof(*wndclass);		//윈도우 구조체 크기
+	wndclass->lpfnWndProc = NOTEPAD_WndProc;	//문제 발생시 함수 콜
+	wndclass->hInstance = Globals.hInstance;	//프로그램 번호
+	wndclass->hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_NPICON));//아이콘
+	wndclass->hCursor = LoadCursor(0, IDC_ARROW); //커서 모양
+	wndclass->hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);//배경색
+	wndclass->lpszMenuName = MAKEINTRESOURCE(MAIN_MENU);//메뉴 리소스
+	wndclass->lpszClassName = className;//이름
+	wndclass->hIconSm = (HICON)LoadImage(hInstance, //작은 아이콘
 		MAKEINTRESOURCE(IDI_NPICON),
 		IMAGE_ICON,
 		16,
@@ -641,17 +642,17 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
     MONITORINFO info;
     INT x, y;
 
-    static const TCHAR className[] = _T("Notepad");
-    static const TCHAR winName[] = _T("Notepad");
+    static const TCHAR className[] = _T("Notepad"); //클래스 이름
+    static const TCHAR winName[] = _T("Notepad"); //윈도우 창 이름
 
-    switch (GetUserDefaultUILanguage())
+    switch (GetUserDefaultUILanguage()) //유저 기본 UI 언어를 가져옴
     {
-    case MAKELANGID(LANG_HEBREW, SUBLANG_DEFAULT):
-        SetProcessDefaultLayout(LAYOUT_RTL);
-        break;
+		case MAKELANGID(LANG_HEBREW, SUBLANG_DEFAULT):
+			SetProcessDefaultLayout(LAYOUT_RTL);
+			break;
 
-    default:
-        break;
+		default:
+			break;
     }
 
     UNREFERENCED_PARAMETER(prev);
@@ -659,11 +660,12 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
     aFINDMSGSTRING = (ATOM)RegisterWindowMessage(FINDMSGSTRING);
 
 	InitGobal(hInstance);
-    NOTEPAD_LoadSettingsFromRegistry();
+    NOTEPAD_LoadSettingsFromRegistry();//레지스트리에서 설정값 가져옴 --> setting.c
 
 	InitWndClass(&wndclass, hInstance, className);
 
-    if (!RegisterClassEx(&wndclass)) return FALSE;
+
+    if (!RegisterClassEx(&wndclass)) return FALSE; //윈도우에 등록이 안되있으면 false
 
     /* Setup windows */
 
@@ -677,18 +679,18 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
 	if (!IsInMainWnd(Globals.main_rect,info.rcWork))
         x = y = CW_USEDEFAULT;
 
-    Globals.hMainWnd = CreateWindow(className,
-                                    winName,
-                                    WS_OVERLAPPEDWINDOW,
-                                    x,
+    Globals.hMainWnd = CreateWindow(className, //생성할 클래스
+                                    winName, //윈도우 캡션(윈도우 창에 뜨는 이름)
+                                    WS_OVERLAPPEDWINDOW, //기본값
+                                    x, //윈도우 상 x,y 좌표
                                     y,
-                                    Globals.main_rect.right - Globals.main_rect.left,
+                                    Globals.main_rect.right - Globals.main_rect.left, //윈도우 사이즈 (width, height)
                                     Globals.main_rect.bottom - Globals.main_rect.top,
-                                    NULL,
-                                    NULL,
-                                    Globals.hInstance,
-                                    NULL);
-    if (!Globals.hMainWnd)
+                                    NULL, //부모 윈도우
+                                    NULL, //윈도우의 menu id값
+                                    Globals.hInstance, //프로그램 번호와 윈도우 연결
+                                    NULL); //특수 목적
+    if (!Globals.hMainWnd) //생성 에러일 경우 에러 리턴
     {
         ShowLastError();
         ExitProcess(1);
@@ -699,9 +701,9 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE prev, LPTSTR cmdline, int sh
     NOTEPAD_InitData();
     DIALOG_FileNew();
 
-    ShowWindow(Globals.hMainWnd, show);
+    ShowWindow(Globals.hMainWnd, show); //윈도우를 보여줌
     UpdateWindow(Globals.hMainWnd);
-    DragAcceptFiles(Globals.hMainWnd, TRUE);
+    DragAcceptFiles(Globals.hMainWnd, TRUE); //파일 드래그 허용
 
     DIALOG_ViewStatusBar();
 

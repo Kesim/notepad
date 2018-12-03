@@ -36,7 +36,15 @@ IDI_NPICON ICON "res/notepad.ico"
 //zy
 //#include <reactos/manifest_exe.rc>
 
-#define LANGUAGE_ZH_CN 1
+/*
+ * FIXME : under define statement occurs setting only korean UI.
+ *         Must use other way to setting user default language UI.
+ * FIXME : In all of language UI setting the printer button on 'page setup'
+ *         don't occur while using this program. Fix 'ps3' to 'ps1' at 104 lines
+ *         in all of lang/*.rc file (except zh-CN.rc, ko-KR.rc, en-US.rc files) 
+*/
+//#define LANGUAGE_ZH_CN
+#define LANGUAGE_KO_KR // Set this program's UI language to korean
 
 /* UTF-8 */
 #pragma code_page(65001)
@@ -88,6 +96,9 @@ IDI_NPICON ICON "res/notepad.ico"
 #endif
 #ifdef LANGUAGE_JA_JP
     #include "lang/ja-JP.rc"
+#endif
+#ifdef LANGUAGE_KO_KR
+    #include "lang/ko-KR.rc"
 #endif
 #ifdef LANGUAGE_LT_LT
     #include "lang/lt-LT.rc"
