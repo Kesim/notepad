@@ -29,6 +29,15 @@
 NOTEPAD_GLOBALS Globals;
 static ATOM aFINDMSGSTRING;
 
+VOID ShowAlert(TCHAR szResource[], int size, TCHAR szText[], int textSize, FINDREPLACE* pFindReplace)
+{
+	LoadString(Globals.hInstance, STRING_CANNOTFIND, szResource, size);
+	_sntprintf(szText, textSize, szResource, pFindReplace->lpstrFindWhat);
+	LoadString(Globals.hInstance, STRING_NOTEPAD, szResource, ARRAY_SIZE(szResource));
+	MessageBox(Globals.hFindReplaceDlg, szText, szResource, MB_OK);
+}
+
+
 VOID NOTEPAD_EnableSearchMenu()
 {
     EnableMenuItem(Globals.hMenu, CMD_SEARCH,
@@ -215,10 +224,7 @@ BOOL NOTEPAD_FindNext(FINDREPLACE *pFindReplace, BOOL bReplace, BOOL bShowAlert)
         /* Can't find target */
         if (bShowAlert)
         {
-            LoadString(Globals.hInstance, STRING_CANNOTFIND, szResource, ARRAY_SIZE(szResource));
-            _sntprintf(szText, ARRAY_SIZE(szText), szResource, pFindReplace->lpstrFindWhat);
-            LoadString(Globals.hInstance, STRING_NOTEPAD, szResource, ARRAY_SIZE(szResource));
-            MessageBox(Globals.hFindReplaceDlg, szText, szResource, MB_OK);
+			ShowAlert(szResource, ARRAY_SIZE(szResource), szText, ARRAY_SIZE(szText), pFindReplace);            
         }
         bSuccess = FALSE;
     }
